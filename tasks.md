@@ -97,6 +97,37 @@
 
 ---
 
+### Session 004 — 2026-03-20 (Phase 2: RAG Integration + Phase 3: Monitoring)
+
+**User Prompt:**
+> Go for the next phases. After every phase completion - do thorough deep testing with all test use cases, proper QA - and then push the changes to the github repo.
+
+**Phase 2 — RAG Integration Tasks:**
+- [x] Build `core/rag/__init__.py` — module exports
+- [x] Build `core/rag/embedder.py` — SentinelEmbedder (sentence-transformers, lazy load, batch, similarity)
+- [x] Build `core/rag/vectorstore.py` — SentinelVectorStore (ChromaDB persistent/HTTP, cosine similarity)
+- [x] Build `core/rag/document_loader.py` — Document chunker + loaders (TXT/MD/PDF/DOCX/JSON)
+- [x] Build `core/rag/retriever.py` — SentinelRetriever (ingest + retrieve + keyword reranking)
+- [x] Add `data/docs/equipment_maintenance_manual.md` — sample RAG knowledge base document
+- [x] Add `data/docs/sentinel_ai_knowledge_base.md` — sample RAG knowledge base document
+- [x] Add `data/docs/ai_safety_operations_policy.md` — sample RAG knowledge base document
+- [x] Write `tests/test_rag.py` — 40+ deep tests (document loader, embedder, vectorstore, retriever, pipeline+RAG)
+
+**Phase 3 — Monitoring & Observability Tasks:**
+- [x] Build `monitoring/__init__.py` — module exports
+- [x] Build `monitoring/otel_setup.py` — OTEL tracer/meter/logger init (+ no-op fallbacks)
+- [x] Build `monitoring/prometheus_metrics.py` — SentinelMetrics (histograms/counters/gauges)
+- [x] Build `monitoring/dashboards/sentinel_inference.json` — Grafana dashboard (9 panels)
+- [x] Build `monitoring/README.md` — full observability setup guide + metrics reference
+- [x] Instrument `core/pipeline.py` — OTEL spans on vision/RAG/LLM + Prometheus recording
+- [x] Update `api/main.py` — `/metrics` Prometheus endpoint
+- [x] Write `tests/test_monitoring.py` — 24 tests (OTEL no-op, Prometheus, instrumented pipeline)
+- [x] Fix ChromaDB empty-metadata bug, health_check test keys, pipeline fixture
+- [x] Final test run: **110 passed, 6 skipped, 0 failed**
+- [x] Commit + push to `https://github.com/Phani3108/Sentinel-AI`
+
+---
+
 ## 📦 Phase 1 — Foundation: Local Multimodal Pipeline
 
 ### Setup

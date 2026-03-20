@@ -212,6 +212,26 @@ async def list_models():
     }
 
 
+@app.get("/metrics", tags=["System"])
+async def prometheus_metrics():
+    """
+    Expose Prometheus metrics in text format.
+    Scrape this endpoint with Prometheus (configured in prometheus.yml).
+    """
+    from fastapi.responses import PlainTextResponse
+    try:
+        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+        return PlainTextResponse(
+            content=generate_latest().decode("utf-8"),
+            media_type=CONTENT_TYPE_LATEST,
+        )
+    except ImportError:
+        return PlainTextResponse(
+            content="# prometheus_client not installed\n",
+            media_type="text/plain",
+        )
+
+
 if __name__ == "__main__":
     import uvicorn
     settings = get_settings()

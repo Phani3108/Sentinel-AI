@@ -38,7 +38,7 @@ benchmark/reports/*.json
 benchmark/reports/*.md
 
 # Monitoring / Docker volumes
-monitoring/dashboards/*.json
+# (Grafana dashboards ARE committed — they are source code, not generated output)
 
 # IDE
 .idea/
@@ -60,3 +60,6 @@ mlartifacts/
 # Temp
 tmp/
 *.tmp
+
+# ChromaDB local data (auto-generated vector store files)
+data/chroma_db/

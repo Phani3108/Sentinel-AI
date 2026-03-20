@@ -203,8 +203,15 @@ def test_pipeline_health_check():
         pipeline.device = "cpu"
         pipeline.enable_rag = False
         pipeline._retriever = None
+        # Phase 3 monitoring attrs
+        pipeline._tracer = None
+        pipeline._metrics = None
 
         health = pipeline.health_check()
         assert "vision_model" in health
         assert "llm_model" in health
         assert "device" in health
+        # Phase 3 additions
+        assert "otel_enabled" in health
+        assert "metrics_enabled" in health
+        assert "rag_docs" in health

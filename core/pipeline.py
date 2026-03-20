@@ -1,19 +1,12 @@
 """
-Sentinel AI — Main Pipeline Orchestrator
+Sentinel AI — Instrumented Pipeline Orchestrator
 
-Coordinates the full multimodal inference pipeline:
-    Input (Image / Video)
-        → Vision Model → Description
-        → [RAG retrieval → Context] (optional)
-        → LLM Reasoning → Response
-        → Observability events
+This is the Phase 2/3 enhanced version of pipeline.py that adds:
+  - RAG integration (ChromaDB + sentence-transformers)
+  - OpenTelemetry spans on every stage
+  - Prometheus metrics recording
 
-Usage:
-    from core.pipeline import SentinelPipeline
-    
-    pipeline = SentinelPipeline(vision_model="florence2", llm_model="llama3.1:8b")
-    result = pipeline.run_image("path/to/image.jpg", "What defects do you see?")
-    print(result.final_answer)
+The public API is identical to Phase 1 — this is a drop-in replacement.
 """
 import logging
 import time
@@ -47,6 +40,7 @@ class PipelineResult:
     # RAG stage (optional)
     rag_context: Optional[str] = None
     rag_chunks_retrieved: int = 0
+    rag_latency_ms: float = 0.0
 
     # LLM stage
     llm_model: str = ""
@@ -77,8 +71,10 @@ class SentinelPipeline:
     """
     Main pipeline orchestrator for Sentinel AI.
 
-    Manages vision model + LLM client lifecycle, optionally integrates
-    RAG retriever, and provides both image and video inference methods.
+    Phases 2 & 3 enhancements:
+    - Fully integrated RAG (ChromaDB + sentence-transformers)
+    - OpenTelemetry tracing on vision, RAG, and LLM stages
+    - Prometheus metrics for latency, throughput, and errors
     """
 
     def __init__(
@@ -92,18 +88,22 @@ class SentinelPipeline:
         settings = get_settings()
         self.device = device or settings.device
         self.enable_rag = enable_rag
+        self._settings = settings
 
         # Resolve model names
         vision_name = vision_model or settings.default_vision_model
         llm_name = llm_model or settings.ollama_llm_model
         ollama_url = ollama_base_url or settings.ollama_base_url
 
-        logger.info(f"Initializing SentinelPipeline: vision={vision_name}, llm={llm_name}, device={self.device}")
+        logger.info(
+            f"Initializing SentinelPipeline: "
+            f"vision={vision_name}, llm={llm_name}, device={self.device}"
+        )
 
-        # Build vision model (lazy-loaded on first use)
+        # Vision model
         self.vision = get_vision_model(vision_name, device=self.device)
 
-        # Build LLM client
+        # LLM client
         self.llm = OllamaLLMClient(
             model=llm_name,
             base_url=ollama_url,
@@ -111,10 +111,48 @@ class SentinelPipeline:
             max_tokens=settings.llm_max_tokens,
         )
 
-        # RAG retriever (initialized lazily)
+        # RAG retriever (optional)
         self._retriever = None
         if enable_rag:
             self._init_rag()
+
+        # Monitoring (lazy init)
+        self._tracer = None
+        self._metrics = None
+        self._init_monitoring()
+
+    # ------------------------------------------------------------------ #
+    # Monitoring init
+    # ------------------------------------------------------------------ #
+
+    def _init_monitoring(self) -> None:
+        """Initialize OTEL tracer and Prometheus metrics (non-fatal)."""
+        try:
+            from monitoring.otel_setup import get_tracer
+            self._tracer = get_tracer("sentinel.pipeline")
+            logger.debug("OTEL tracer initialized for pipeline")
+        except Exception:
+            self._tracer = None
+
+        try:
+            from monitoring.prometheus_metrics import METRICS
+            self._metrics = METRICS
+            logger.debug("Prometheus metrics initialized for pipeline")
+        except Exception:
+            self._metrics = None
+
+    def _get_span(self, name: str):
+        """Return an OTEL span context manager (or no-op if unavailable)."""
+        if self._tracer:
+            return self._tracer.start_as_current_span(name)
+
+        class _Noop:
+            def __enter__(self): return self
+            def __exit__(self, *args): pass
+            def set_attribute(self, *args): pass
+            def record_exception(self, *args): pass
+
+        return _Noop()
 
     # ------------------------------------------------------------------ #
     # Image Inference
@@ -144,41 +182,123 @@ class SentinelPipeline:
         t_start = time.perf_counter()
         image_path = Path(image)
 
-        # Step 1: Vision
-        logger.info(f"[Vision] Analyzing {image_path.name} with {self.vision.name}")
-        v_prompt = vision_prompt or "Describe this image in comprehensive detail."
-        vision_result: VisionResult = self.vision.analyze(image_path, v_prompt)
-        logger.info(f"[Vision] Done. Latency={vision_result.latency_ms:.0f}ms")
+        # -- Step 1: Vision --
+        with self._get_span("vision_inference") as span:
+            if hasattr(span, "set_attribute"):
+                span.set_attribute("model.name", self.vision.name)
+                span.set_attribute("image.path", str(image_path))
 
-        # Step 2: RAG (optional)
+            logger.info(f"[Vision] Analyzing {image_path.name} with {self.vision.name}")
+            v_prompt = vision_prompt or "Describe this image in comprehensive detail."
+
+            t_vision = time.perf_counter()
+            try:
+                vision_result: VisionResult = self.vision.analyze(image_path, v_prompt)
+            except Exception as e:
+                if hasattr(span, "record_exception"):
+                    span.record_exception(e)
+                if self._metrics:
+                    self._metrics.errors_total.labels(
+                        component="vision", error_type=type(e).__name__
+                    ).inc()
+                raise
+
+            vision_latency_s = time.perf_counter() - t_vision
+            if hasattr(span, "set_attribute"):
+                span.set_attribute("latency_ms", vision_result.latency_ms)
+
+            # Record Prometheus vision latency
+            if self._metrics:
+                self._metrics.vision_latency.labels(
+                    model=self.vision.name
+                ).observe(vision_latency_s)
+
+            logger.info(f"[Vision] Done. Latency={vision_result.latency_ms:.0f}ms")
+
+        # -- Step 2: RAG --
         rag_context = None
         chunks_retrieved = 0
+        rag_latency_ms = 0.0
+
         if self.enable_rag and self._retriever:
-            rag_context = self._retrieve_context(prompt + " " + vision_result.description)
-            chunks_retrieved = len(rag_context.split("\n---\n")) if rag_context else 0
+            with self._get_span("rag_retrieve") as span:
+                if hasattr(span, "set_attribute"):
+                    span.set_attribute("rag.top_k", self._settings.rag_top_k)
 
-        # Step 3: LLM Reasoning
-        llm_prompt = self._build_llm_prompt(prompt, vision_result)
-        logger.info(f"[LLM] Reasoning with {self.llm.model}")
+                t_rag = time.perf_counter()
+                try:
+                    rag_context = self._retrieve_context(
+                        prompt + " " + vision_result.description
+                    )
+                    chunks_retrieved = len(rag_context.split("\n---\n")) if rag_context else 0
+                except Exception as e:
+                    logger.warning(f"RAG retrieval failed: {e}")
+                    rag_context = None
 
-        if stream:
-            full_answer = ""
+                rag_latency_ms = (time.perf_counter() - t_rag) * 1000
+                if hasattr(span, "set_attribute"):
+                    span.set_attribute("rag.chunks_returned", chunks_retrieved)
+
+                if self._metrics:
+                    self._metrics.rag_latency.labels(
+                        collection=self._settings.chroma_collection
+                    ).observe(rag_latency_ms / 1000)
+                    self._metrics.rag_retrievals_total.labels(
+                        outcome="hit" if chunks_retrieved > 0 else "miss"
+                    ).inc()
+
+        # -- Step 3: LLM --
+        with self._get_span("llm_generate") as span:
+            llm_prompt = self._build_llm_prompt(prompt, vision_result, rag_context)
+            if hasattr(span, "set_attribute"):
+                span.set_attribute("model.name", self.llm.model)
+                span.set_attribute("prompt.length", len(llm_prompt))
+
+            logger.info(f"[LLM] Reasoning with {self.llm.model}")
             t_llm = time.perf_counter()
-            for token in self.llm.stream(llm_prompt, context=rag_context):
-                print(token, end="", flush=True)
-                full_answer += token
-            print()
-            llm_latency = (time.perf_counter() - t_llm) * 1000
-            tokens_used = 0
-        else:
-            t_llm = time.perf_counter()
-            llm_resp: LLMResponse = self.llm.generate(llm_prompt, context=rag_context)
-            llm_latency = (time.perf_counter() - t_llm) * 1000
-            full_answer = llm_resp.content
-            tokens_used = llm_resp.total_tokens
 
-        total_latency = (time.perf_counter() - t_start) * 1000
-        logger.info(f"[Pipeline] Complete. Total latency={total_latency:.0f}ms")
+            if stream:
+                full_answer = ""
+                for token in self.llm.stream(llm_prompt, context=rag_context):
+                    print(token, end="", flush=True)
+                    full_answer += token
+                print()
+                llm_latency_ms = (time.perf_counter() - t_llm) * 1000
+                tokens_used = 0
+            else:
+                llm_resp: LLMResponse = self.llm.generate(llm_prompt, context=rag_context)
+                llm_latency_ms = (time.perf_counter() - t_llm) * 1000
+                full_answer = llm_resp.content
+                tokens_used = llm_resp.total_tokens
+
+            if hasattr(span, "set_attribute"):
+                span.set_attribute("tokens.total", tokens_used)
+                span.set_attribute("latency_ms", llm_latency_ms)
+
+            if self._metrics:
+                self._metrics.llm_latency.labels(
+                    model=self.llm.model
+                ).observe(llm_latency_ms / 1000)
+                if tokens_used > 0:
+                    self._metrics.llm_tokens_total.labels(
+                        model=self.llm.model, type="completion"
+                    ).inc(tokens_used)
+
+        total_latency_ms = (time.perf_counter() - t_start) * 1000
+        logger.info(f"[Pipeline] Complete. Total latency={total_latency_ms:.0f}ms")
+
+        # Record full pipeline run
+        if self._metrics:
+            self._metrics.record_pipeline_run(
+                vision_model=self.vision.name,
+                llm_model=self.llm.model,
+                vision_latency_s=vision_latency_s,
+                llm_latency_s=llm_latency_ms / 1000,
+                total_latency_s=total_latency_ms / 1000,
+                tokens_used=tokens_used,
+                success=True,
+                rag_hits=chunks_retrieved,
+            )
 
         return PipelineResult(
             input_path=str(image_path),
@@ -190,11 +310,12 @@ class SentinelPipeline:
             vision_memory_mb=vision_result.memory_mb,
             rag_context=rag_context,
             rag_chunks_retrieved=chunks_retrieved,
+            rag_latency_ms=rag_latency_ms,
             llm_model=self.llm.model,
             final_answer=full_answer,
-            llm_latency_ms=llm_latency,
+            llm_latency_ms=llm_latency_ms,
             llm_tokens_used=tokens_used,
-            total_latency_ms=total_latency,
+            total_latency_ms=total_latency_ms,
             timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
@@ -210,9 +331,18 @@ class SentinelPipeline:
         """
         image_path = Path(image)
         v_prompt = vision_prompt or "Describe this image in comprehensive detail."
-        vision_result: VisionResult = self.vision.analyze(image_path, v_prompt)
 
-        llm_prompt = self._build_llm_prompt(prompt, vision_result)
+        with self._get_span("vision_inference") as span:
+            if hasattr(span, "set_attribute"):
+                span.set_attribute("model.name", self.vision.name)
+            vision_result: VisionResult = self.vision.analyze(image_path, v_prompt)
+
+        # RAG context for streaming
+        rag_context = None
+        if self.enable_rag and self._retriever:
+            rag_context = self._retrieve_context(prompt + " " + vision_result.description)
+
+        llm_prompt = self._build_llm_prompt(prompt, vision_result, rag_context)
 
         # First yield the vision description as structured context
         yield f"[VISION]: {vision_result.description}\n\n[ANALYSIS]: "
@@ -234,29 +364,20 @@ class SentinelPipeline:
         use_keyframes: bool = False,
         output_dir: Optional[Path] = None,
     ) -> VideoNarration:
-        """
-        Full pipeline for a video: extract frames → analyze each → narrate.
-
-        Args:
-            video: Path to video file
-            prompt: The overall question to answer about the video
-            fps: Frames per second to extract (0.5 = 1 frame every 2 seconds)
-            max_frames: Maximum frames to analyze
-            use_keyframes: If True, extract semantic keyframes instead of uniform
-            output_dir: Directory to save extracted frames
-
-        Returns:
-            VideoNarration with per-frame descriptions and full narration
-        """
+        """Full pipeline for a video: extract frames → analyze each → narrate."""
         t_start = time.perf_counter()
         video_path = Path(video)
         logger.info(f"[Video] Processing {video_path.name}")
 
         # Extract frames
-        if use_keyframes:
-            frames: List[VideoFrame] = extract_keyframes(video_path, output_dir, max_frames)
-        else:
-            frames = extract_frames(video_path, output_dir, fps, max_frames)
+        with self._get_span("video_frame_extraction") as span:
+            if use_keyframes:
+                frames: List[VideoFrame] = extract_keyframes(video_path, output_dir, max_frames)
+            else:
+                frames = extract_frames(video_path, output_dir, fps, max_frames)
+
+            if hasattr(span, "set_attribute"):
+                span.set_attribute("frames.extracted", len(frames))
 
         logger.info(f"[Video] Extracted {len(frames)} frames")
 
@@ -266,22 +387,27 @@ class SentinelPipeline:
 
         for frame in frames:
             try:
-                vr = self.vision.analyze(
-                    frame.image_path,
-                    "Describe what is happening in this frame. Be specific.",
-                )
+                with self._get_span("vision_inference") as span:
+                    if hasattr(span, "set_attribute"):
+                        span.set_attribute("frame.index", frame.index)
+                    vr = self.vision.analyze(
+                        frame.image_path,
+                        "Describe what is happening in this frame. Be specific.",
+                    )
                 frame_summaries.append({
                     "timestamp": frame.timestamp_sec,
                     "description": vr.description,
                     "latency_ms": vr.latency_ms,
                 })
-                all_descriptions.append(
-                    f"[{frame.timestamp_sec:.1f}s] {vr.description}"
-                )
+                all_descriptions.append(f"[{frame.timestamp_sec:.1f}s] {vr.description}")
+
+                if self._metrics:
+                    self._metrics.video_frames_total.labels(model=self.vision.name).inc()
+
             except Exception as e:
                 logger.warning(f"Failed to analyze frame {frame.index}: {e}")
 
-        # Build narration prompt from all frame descriptions
+        # Build narration
         frame_context = "\n".join(all_descriptions)
         narration_prompt = (
             f"Here are descriptions of sequential video frames:\n\n{frame_context}\n\n"
@@ -292,9 +418,12 @@ class SentinelPipeline:
         if self.enable_rag and self._retriever:
             rag_context = self._retrieve_context(prompt)
 
-        narration_resp = self.llm.generate(narration_prompt, context=rag_context)
-        total_latency = (time.perf_counter() - t_start) * 1000
+        with self._get_span("llm_generate") as span:
+            if hasattr(span, "set_attribute"):
+                span.set_attribute("operation", "video_narration")
+            narration_resp = self.llm.generate(narration_prompt, context=rag_context)
 
+        total_latency = (time.perf_counter() - t_start) * 1000
         logger.info(f"[Video] Narration complete. Total latency={total_latency:.0f}ms")
 
         return VideoNarration(
@@ -310,13 +439,21 @@ class SentinelPipeline:
     # ------------------------------------------------------------------ #
 
     def _init_rag(self) -> None:
-        """Initialize the RAG retriever (lazy)."""
+        """Initialize the RAG retriever."""
         try:
             from .rag import SentinelRetriever
-            self._retriever = SentinelRetriever()
+            settings = self._settings
+            self._retriever = SentinelRetriever(
+                collection_name=settings.chroma_collection,
+                top_k=settings.rag_top_k,
+            )
             logger.info("✅ RAG retriever initialized.")
-        except ImportError:
-            logger.warning("RAG module not yet built — running without RAG.")
+            if self._metrics:
+                self._metrics.rag_documents_count.labels(
+                    collection=settings.chroma_collection
+                ).set(self._retriever.document_count)
+        except ImportError as e:
+            logger.warning(f"RAG module unavailable: {e} — running without RAG.")
             self._retriever = None
 
     def _retrieve_context(self, query: str) -> Optional[str]:
@@ -324,8 +461,7 @@ class SentinelPipeline:
         if not self._retriever:
             return None
         try:
-            docs = self._retriever.retrieve(query)
-            return "\n---\n".join(d["text"] for d in docs)
+            return self._retriever.retrieve_as_context(query)
         except Exception as e:
             logger.warning(f"RAG retrieval failed: {e}")
             return None
@@ -335,15 +471,30 @@ class SentinelPipeline:
     # ------------------------------------------------------------------ #
 
     @staticmethod
-    def _build_llm_prompt(user_prompt: str, vision_result: VisionResult) -> str:
-        """Build the LLM prompt from the user question + vision description."""
-        return (
+    def _build_llm_prompt(
+        user_prompt: str,
+        vision_result: VisionResult,
+        rag_context: Optional[str] = None,
+    ) -> str:
+        """Build the LLM prompt from the user question + vision description + RAG context."""
+        prompt = (
             f"You are analyzing an image/video. "
             f"The visual content has been described by a vision model as follows:\n\n"
             f"VISION MODEL OUTPUT:\n{vision_result.description}\n\n"
-            f"USER QUESTION: {user_prompt}\n\n"
-            f"Provide a detailed, accurate analysis based on the visual description."
         )
+
+        if rag_context:
+            prompt += (
+                f"RELEVANT CONTEXT FROM KNOWLEDGE BASE:\n{rag_context}\n\n"
+            )
+
+        prompt += f"USER QUESTION: {user_prompt}\n\n"
+        prompt += "Provide a detailed, accurate analysis based on the visual description"
+        if rag_context:
+            prompt += " and retrieve context"
+        prompt += "."
+
+        return prompt
 
     def health_check(self) -> dict:
         """Return health status of all pipeline components."""
@@ -353,7 +504,10 @@ class SentinelPipeline:
             "llm_model": self.llm.model,
             "llm_available": self.llm.is_available(),
             "rag_enabled": self.enable_rag,
+            "rag_docs": self._retriever.document_count if self._retriever else 0,
             "device": self.device,
+            "otel_enabled": self._tracer is not None,
+            "metrics_enabled": self._metrics is not None,
         }
 
     def __repr__(self) -> str:

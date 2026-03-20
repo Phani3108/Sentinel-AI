@@ -346,7 +346,12 @@ class TestSentinelPipeline:
 
     def test_health_check_structure(self, pipeline):
         health = pipeline.health_check()
-        required_keys = {"vision_model", "vision_loaded", "llm_model", "llm_available", "rag_enabled", "device"}
+        required_keys = {
+            "vision_model", "vision_loaded", "llm_model", "llm_available",
+            "rag_enabled", "device",
+            # Phase 3 additions:
+            "rag_docs", "otel_enabled", "metrics_enabled",
+        }
         assert required_keys == set(health.keys())
 
     def test_build_llm_prompt_structure(self):
