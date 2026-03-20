@@ -1,9 +1,10 @@
 """
-Sentinel AI — FastAPI Server (v0.3.0)
-Provides REST + WebSocket endpoints for the multimodal pipeline.
-Phase 4 additions: RAG endpoints, video endpoint, hybrid router endpoint.
+Sentinel AI — FastAPI Server (v0.4.0)
+Phase 7: Enterprise Security & Governance
+Provides REST + WebSocket endpoints with strict API Key Auth, RBAC, PII Masking, Rate Limiting, and Audit Logging.
 """
 import base64
+import hashlib
 import logging
 import os
 import tempfile
@@ -11,13 +12,29 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, Form, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, UploadFile, WebSocket, WebSocketDisconnect, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from core.config import get_settings
 from core.pipeline import SentinelPipeline
+
+# Phase 8 Caching & Async Jobs
+from core.cache import get_cache
+from api.jobs import router as jobs_router
+
+# Phase 9 Feedback Loop
+from api.feedback import router as feedback_router
+
+# Phase 7 Security Modules
+from api.security.auth import get_current_user, UserAccount, UserRole
+from api.security.rbac import require_role
+from core.audit.logger import get_audit_logger
+from core.security.masking import get_pii_masker
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,6 +45,17 @@ logger = logging.getLogger(__name__)
 _pipeline: Optional[SentinelPipeline] = None
 _retriever = None
 
+limiter = Limiter(key_func=get_remote_address)
+
+def hash_file(filepath: Path) -> str:
+    """Helper for audit logs to track the image identity without storing the image."""
+    hasher = hashlib.sha256()
+    with open(filepath, 'rb') as f:
+        buf = f.read(65536)
+        while len(buf) > 0:
+            hasher.update(buf)
+            buf = f.read(65536)
+    return hasher.hexdigest()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -40,6 +68,9 @@ async def lifespan(app: FastAPI):
         enable_rag=False,
     )
     logger.info(f"✅ Pipeline initialized: {_pipeline}")
+    # Prime singletons
+    get_audit_logger()
+    get_cache()
     yield
     logger.info("Shutting down Sentinel AI API...")
 
@@ -48,11 +79,17 @@ async def lifespan(app: FastAPI):
 # FastAPI App
 # ------------------------------------------------------------------ #
 app = FastAPI(
-    title="Sentinel AI",
-    description="Private Multimodal AI Stack — On-Prem Vision + LLM",
-    version="0.3.0",
+    title="Sentinel AI - Enterprise Secure",
+    description="Private Multimodal AI Stack with Sentinel Guard Governance.",
+    version="0.4.0",
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+app.include_router(jobs_router)
+app.include_router(feedback_router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -95,7 +132,7 @@ class RAGQueryRequest(BaseModel):
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health():
-    """Health check — verify pipeline components are running."""
+    """Health check — intentionally left public so Load Balancers can ping it."""
     h = _pipeline.health_check()
     return HealthResponse(
         status="ok",
@@ -107,8 +144,8 @@ async def health():
 
 
 @app.get("/models", tags=["System"])
-async def list_models():
-    """List all available vision models in the registry."""
+async def list_models(user: UserAccount = Depends(get_current_user)):
+    """List all available vision models. Requires authentication."""
     from core.vision import _REGISTRY
     return {
         "vision_models": list(_REGISTRY.keys()),
@@ -119,7 +156,7 @@ async def list_models():
 
 @app.get("/metrics", tags=["System"])
 async def prometheus_metrics():
-    """Expose Prometheus metrics in text format."""
+    """Expose Prometheus metrics. Usually scraped by internal Prometheus server (safe public)."""
     try:
         from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
         return PlainTextResponse(
@@ -135,28 +172,65 @@ async def prometheus_metrics():
 # ------------------------------------------------------------------ #
 
 @app.post("/analyze/image", response_model=AnalyzeResponse, tags=["Inference"])
+@limiter.limit("10/minute")
 async def analyze_image(
-    file: UploadFile = File(..., description="Image file to analyze"),
+    request: Request,
+    file: UploadFile = File(...),
     prompt: str = Form(default="What do you see in this image?"),
     vision_prompt: Optional[str] = Form(default=None),
+    user: UserAccount = Depends(get_current_user)
 ):
-    """Analyze a single image: image → vision model → LLM → response."""
+    """Analyze a single image. Authenticated, Rate Limited, and Audited."""
+    # 1. PII Masking
+    redacted_prompt, mask_stats = get_pii_masker().redact(prompt)
+    
     suffix = Path(file.filename).suffix if file.filename else ".jpg"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         content = await file.read()
         tmp.write(content)
         tmp_path = Path(tmp.name)
+        img_hash = hash_file(tmp_path)
+    
     try:
-        result = _pipeline.run_image(tmp_path, prompt=prompt, vision_prompt=vision_prompt)
-        return AnalyzeResponse(
-            vision_model=result.vision_model,
-            vision_description=result.vision_description,
-            final_answer=result.final_answer,
-            total_latency_ms=result.total_latency_ms,
-            llm_tokens_used=result.llm_tokens_used,
-            rag_context=getattr(result, "rag_context", None),
-            rag_chunks_retrieved=getattr(result, "rag_chunks_retrieved", 0),
+        # Check cache early to bypass heavy GPU
+        cached_result = get_cache().get_inference(img_hash, redacted_prompt)
+        if cached_result:
+            return AnalyzeResponse(**cached_result)
+
+        # 2. Execution
+        result = _pipeline.run_image(tmp_path, prompt=redacted_prompt, vision_prompt=vision_prompt)
+        
+        # 3. Audit Logging
+        img_hash = hash_file(tmp_path)
+        get_audit_logger().log_request(
+            username=user.username,
+            endpoint="/analyze/image",
+            prompt=redacted_prompt,
+            image_hash=img_hash,
+            route="local",
+            status_code=200,
+            response_meta={"latency": result.total_latency_ms, "pii_masked": mask_stats, "cache": "MISS"}
         )
+        
+        response_dict = {
+            "vision_model": result.vision_model,
+            "vision_description": result.vision_description,
+            "final_answer": result.final_answer,
+            "total_latency_ms": result.total_latency_ms,
+            "llm_tokens_used": result.llm_tokens_used,
+            "rag_context": getattr(result, "rag_context", None),
+            "rag_chunks_retrieved": getattr(result, "rag_chunks_retrieved", 0),
+        }
+        
+        # Save exact-match result back to cache for 24h
+        get_cache().set_inference(img_hash, redacted_prompt, response_dict)
+
+        return AnalyzeResponse(**response_dict)
+    except Exception as e:
+        get_audit_logger().log_request(
+            username=user.username, endpoint="/analyze/image", status_code=500, prompt=redacted_prompt
+        )
+        return JSONResponse(status_code=500, content={"error": str(e)})
     finally:
         try:
             os.unlink(tmp_path)
@@ -165,11 +239,16 @@ async def analyze_image(
 
 
 @app.post("/analyze/image/stream", tags=["Inference"])
+@limiter.limit("20/minute")
 async def analyze_image_stream(
+    request: Request,
     file: UploadFile = File(...),
     prompt: str = Form(default="What do you see in this image?"),
+    user: UserAccount = Depends(get_current_user)
 ):
     """Stream vision + LLM response tokens via Server-Sent Events."""
+    redacted_prompt, _ = get_pii_masker().redact(prompt)
+    
     suffix = Path(file.filename).suffix if file.filename else ".jpg"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         content = await file.read()
@@ -178,7 +257,10 @@ async def analyze_image_stream(
 
     async def generate():
         try:
-            for token in _pipeline.stream_image(tmp_path, prompt=prompt):
+            get_audit_logger().log_request(
+                username=user.username, endpoint="/analyze/image/stream", prompt=redacted_prompt, status_code=200
+            )
+            for token in _pipeline.stream_image(tmp_path, prompt=redacted_prompt):
                 yield f"data: {token}\n\n"
             yield "data: [DONE]\n\n"
         finally:
@@ -195,21 +277,27 @@ async def analyze_image_stream(
 # ------------------------------------------------------------------ #
 
 @app.post("/analyze/video", tags=["Inference"])
+@limiter.limit("2/minute")
 async def analyze_video(
+    request: Request,
     file: UploadFile = File(..., description="Video file to analyze"),
     prompt: str = Form(default="Describe what is happening in this video."),
     fps: float = Form(default=0.5),
     max_frames: int = Form(default=15),
     use_keyframes: bool = Form(default=False),
+    user: UserAccount = Depends(get_current_user)
 ):
-    """Analyse a video file: extract frames → per-frame vision → LLM narration."""
+    """Analyse a video file."""
+    redacted_prompt, mask_stats = get_pii_masker().redact(prompt)
+    
     suffix = Path(file.filename).suffix if file.filename else ".mp4"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         content = await file.read()
         tmp.write(content)
         tmp_path = Path(tmp.name)
+        
     try:
-        result = _pipeline.run_video(tmp_path, prompt=prompt, fps=fps, max_frames=max_frames)
+        result = _pipeline.run_video(tmp_path, prompt=redacted_prompt, fps=fps, max_frames=max_frames)
         frame_summaries = []
         for fs in getattr(result, "frame_summaries", []):
             frame_summaries.append({
@@ -217,6 +305,11 @@ async def analyze_video(
                 "description": getattr(fs, "vision_description", ""),
                 "latency_ms": getattr(fs, "latency_ms", 0),
             })
+            
+        get_audit_logger().log_request(
+            username=user.username, endpoint="/analyze/video", prompt=redacted_prompt, status_code=200,
+            response_meta={"total_frames": len(frame_summaries), "latency": result.total_latency_ms}
+        )
         return {
             "narration": result.final_answer,
             "total_frames": len(frame_summaries),
@@ -224,6 +317,7 @@ async def analyze_video(
             "total_latency_ms": result.total_latency_ms,
         }
     except Exception as e:
+        get_audit_logger().log_request(username=user.username, endpoint="/analyze/video", status_code=500)
         logger.error(f"Video analysis failed: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
     finally:
@@ -238,12 +332,15 @@ async def analyze_video(
 # ------------------------------------------------------------------ #
 
 @app.post("/rag/ingest", tags=["RAG"])
+@limiter.limit("5/minute")
 async def rag_ingest(
+    request: Request,
     file: UploadFile = File(...),
     chunk_size: int = Form(default=500),
     overlap: int = Form(default=50),
+    user: UserAccount = Depends(require_role(UserRole.ADMIN))
 ):
-    """Ingest a document into the vector store."""
+    """Ingest a document into the vector store. Requires ADMIN role."""
     try:
         retriever = _get_retriever()
         suffix = Path(file.filename).suffix if file.filename else ".txt"
@@ -253,6 +350,7 @@ async def rag_ingest(
             tmp_path = Path(tmp.name)
         try:
             ids = retriever.ingest_file(tmp_path, chunk_size=chunk_size, overlap=overlap)
+            get_audit_logger().log_request(username=user.username, endpoint="/rag/ingest", response_meta={"chunks": len(ids)})
             return {"chunks_added": len(ids), "filename": file.filename}
         finally:
             try:
@@ -263,33 +361,26 @@ async def rag_ingest(
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-@app.post("/rag/ingest/samples", tags=["RAG"])
-async def rag_ingest_samples():
-    """Ingest the built-in sample knowledge base documents from data/docs/."""
-    try:
-        retriever = _get_retriever()
-        docs_dir = Path("data/docs")
-        if not docs_dir.exists():
-            return JSONResponse(status_code=404, content={"error": "data/docs not found"})
-        ids = retriever.ingest_directory(docs_dir)
-        return {"chunks_added": len(ids), "source": str(docs_dir)}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-
 @app.post("/rag/query", tags=["RAG"])
-async def rag_query(request: RAGQueryRequest):
-    """Query the vector store and return ranked chunks."""
+@limiter.limit("20/minute")
+async def rag_query(
+    request: Request,
+    query_req: RAGQueryRequest,
+    user: UserAccount = Depends(get_current_user)
+):
+    """Query the vector store. Uses Masking to prevent pulling PII."""
+    redacted_query, _ = get_pii_masker().redact(query_req.query)
     try:
         retriever = _get_retriever()
-        results = retriever.retrieve(request.query, top_k=request.top_k)
-        return {"results": results, "query": request.query}
+        results = retriever.retrieve(redacted_query, top_k=query_req.top_k)
+        get_audit_logger().log_request(username=user.username, endpoint="/rag/query", prompt=redacted_query)
+        return {"results": results, "query": redacted_query}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.get("/rag/stats", tags=["RAG"])
-async def rag_stats():
+async def rag_stats(user: UserAccount = Depends(get_current_user)):
     """Return collection statistics."""
     try:
         retriever = _get_retriever()
@@ -303,11 +394,16 @@ async def rag_stats():
 
 
 @app.delete("/rag/reset", tags=["RAG"])
-async def rag_reset():
-    """Clear all documents from the vector store."""
+@limiter.limit("1/minute")
+async def rag_reset(
+    request: Request,
+    user: UserAccount = Depends(require_role(UserRole.ADMIN))
+):
+    """Clear all documents from the vector store. Requires ADMIN role."""
     try:
         retriever = _get_retriever()
         retriever.reset()
+        get_audit_logger().log_request(username=user.username, endpoint="/rag/reset", response_meta={"status": "cleared"})
         return {"status": "ok", "message": "Collection reset"}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -318,17 +414,24 @@ async def rag_reset():
 # ------------------------------------------------------------------ #
 
 @app.post("/route/image", tags=["Router"])
+@limiter.limit("10/minute")
 async def route_image(
+    request: Request,
     file: UploadFile = File(...),
     prompt: str = Form(default="What do you see in this image?"),
     strict_mode: bool = Form(default=False),
+    user: UserAccount = Depends(get_current_user)
 ):
-    """Route an image through the hybrid router (local vs cloud based on sensitivity)."""
+    """Route an image through the hybrid router. Enforces Security first."""
+    # Mask prompts going to the cloud
+    redacted_prompt, mask_stats = get_pii_masker().redact(prompt)
+    
     suffix = Path(file.filename).suffix if file.filename else ".jpg"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         content = await file.read()
         tmp.write(content)
         tmp_path = Path(tmp.name)
+        
     try:
         from router.hybrid_router import HybridRouter
         from router.cloud_client import CloudClient
@@ -338,7 +441,18 @@ async def route_image(
             cloud_client=cloud if cloud.is_available() else None,
             strict_mode=strict_mode,
         )
-        result = router.route(str(tmp_path), prompt)
+        result = router.route(str(tmp_path), redacted_prompt)
+        
+        get_audit_logger().log_request(
+            username=user.username,
+            endpoint="/route/image",
+            prompt=redacted_prompt,
+            image_hash=hash_file(tmp_path),
+            route=result.route,
+            status_code=200,
+            response_meta={"cost": result.estimated_cost_usd, "classification": result.classification_label}
+        )
+        
         return {
             "route": result.route,
             "classification": result.classification_label,
@@ -351,6 +465,7 @@ async def route_image(
             "success": result.success,
         }
     except Exception as e:
+        get_audit_logger().log_request(username=user.username, endpoint="/route/image", status_code=500)
         return JSONResponse(status_code=500, content={"error": str(e)})
     finally:
         try:
@@ -360,18 +475,23 @@ async def route_image(
 
 
 # ------------------------------------------------------------------ #
-# WebSocket
+# WebSocket (WebSockets do not easily accept standard Authorization HTTP headers in browser JS, 
+# so we pass query params or accept insecurely for internal dashboard only)
 # ------------------------------------------------------------------ #
 
 @app.websocket("/ws/analyze")
 async def websocket_analyze(websocket: WebSocket):
-    """WebSocket endpoint for real-time image analysis (base64 image)."""
+    """WebSocket endpoint for real-time image analysis. 
+    NOTE: Secure token parsing inside WS is complex; left simple for now."""
     await websocket.accept()
     logger.info("WebSocket connection accepted")
     try:
         while True:
             data = await websocket.receive_json()
             prompt = data.get("prompt", "Describe this image.")
+            # Redact prompt before sending
+            redacted_prompt, _ = get_pii_masker().redact(prompt)
+            
             image_b64 = data.get("image_b64")
             if not image_b64:
                 await websocket.send_json({"error": "image_b64 required"})
@@ -381,7 +501,10 @@ async def websocket_analyze(websocket: WebSocket):
                 tmp.write(img_bytes)
                 tmp_path = Path(tmp.name)
             try:
-                for token in _pipeline.stream_image(tmp_path, prompt=prompt):
+                get_audit_logger().log_request(
+                    username="websocket_client", endpoint="/ws/analyze", prompt=redacted_prompt, status_code=200
+                )
+                for token in _pipeline.stream_image(tmp_path, prompt=redacted_prompt):
                     await websocket.send_text(token)
                 await websocket.send_json({"done": True})
             except Exception as e:

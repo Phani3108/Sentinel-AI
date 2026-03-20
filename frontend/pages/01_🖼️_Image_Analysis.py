@@ -159,6 +159,35 @@ if run_btn and uploaded_file:
                     llm_tokens_used=result.get("llm_tokens_used", 0),
                 )
 
+            # --- PHASE 9 FEEDBACK UI ---
+            st.markdown("---")
+            st.markdown("### 🧠 Continuous Learning Feedback")
+            st.caption("Help fine-tune Sentinel by correcting hallucinations or missing details.")
+            with st.form("feedback_form"):
+                rating_choice = st.radio("Was the analysis accurate?", ["👍 Good (+1)", "👎 Poor (-1)"], horizontal=True)
+                correction = st.text_area("Supervised Correction (optional)", help="Provide the ground-truth answer here.")
+                submit_fb = st.form_submit_button("Submit RLHF Feedback")
+                
+                if submit_fb:
+                    rating = 1 if "👍" in rating_choice else -1
+                    ans = full_text if stream_mode else result.get("final_answer", "")
+                    payload = {
+                        "prompt": prompt,
+                        "original_answer": ans,
+                        "rating": rating,
+                        "image_hash": "frontend_submission",
+                        "user_correction": correction if correction.strip() else None
+                    }
+                    try:
+                        import httpx
+                        r = httpx.post(f"{api_url}/feedback/", json=payload, headers={"X-API-Key": "sk-admin-secret-key-123"})
+                        if r.status_code == 200:
+                            st.success("✅ Feedback integrated into the Flywheel dataset!")
+                        else:
+                            st.error(f"Error: {r.text}")
+                    except Exception as fe:
+                        st.error(f"Failed: {fe}")
+
         except httpx.ConnectError:
             st.empty()
             render_error_card(

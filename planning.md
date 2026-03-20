@@ -289,6 +289,10 @@ sentinel-ai/
 | Phase 4: Real-Time App | Week 6–7 | Live webcam inference UI demo |
 | Phase 5: Fine-Tuning | Week 8–10 | Fine-tuned Florence-2 on custom dataset |
 | Phase 6: Hybrid Router | Week 11–12 | Sensitivity-based cloud/local routing |
+| Phase 7: Ent. Security | Week 13–14 | RBAC, API Keys, Audit Logs, Data Masking |
+| Phase 8: Scaling & HA | Week 15–16 | K8s, Async Queues, Redis Cache, vLLM engine |
+| Phase 9: Data Flywheel | Week 17–18 | RLHF/DPO pipeline based on user feedback |
+| Phase 10: Agentic | Week 19-20 | Multi-agent orchestration and dynamic tool use |
 
 ---
 

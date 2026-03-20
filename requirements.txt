@@ -40,6 +40,10 @@ opentelemetry-exporter-otlp>=1.24.0
 opentelemetry-instrumentation-fastapi>=0.45b0
 prometheus-client>=0.20.0
 
+# Phase 8: Distributed Scaling
+redis==5.0.3
+celery==5.3.6
+
 # --- Benchmarking & Profiling ---
 psutil>=5.9.8
 py-cpuinfo>=9.0.0

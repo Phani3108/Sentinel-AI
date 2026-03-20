@@ -1,0 +1,38 @@
+api:
+  replicaCount: 3
+  image:
+    repository: sentinel-api
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  resources:
+    limits:
+      nvidia.com/gpu: 1
+      memory: "16Gi"
+    requests:
+      memory: "8Gi"
+      cpu: "2"
+
+worker:
+  replicaCount: 2
+  image:
+    repository: sentinel-api
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  resources:
+    limits:
+      nvidia.com/gpu: 1
+      memory: "16Gi"
+
+redis:
+  image:
+    repository: redis
+    tag: "7.0-alpine"
+  resources:
+    limits:
+      memory: "2Gi"
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: sentinel-frontend
+    tag: "latest"

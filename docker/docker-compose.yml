@@ -77,6 +77,29 @@ services:
       - '--storage.tsdb.retention.time=15d'
     restart: unless-stopped
 
+  # Phase 8: Distributed Scaling
+  redis:
+    image: redis:7.0-alpine
+    container_name: sentinel_redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+  sentinel_worker:
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile.api
+    container_name: sentinel_worker
+    command: ["celery", "-A", "core.worker", "worker", "--loglevel=info"]
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - DEVICE=cpu # Use cpu in docker desktop for Mac
+    volumes:
+      - ../:/app
+      - sentinel-jobs:/app/data/jobs_staging
+    depends_on:
+      - redis
+
   # ---------------------------------------------------------
   # Grafana — Dashboards
   # ---------------------------------------------------------

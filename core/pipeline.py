@@ -104,12 +104,17 @@ class SentinelPipeline:
         self.vision = get_vision_model(vision_name, device=self.device)
 
         # LLM client
-        self.llm = OllamaLLMClient(
-            model=llm_name,
-            base_url=ollama_url,
-            temperature=settings.llm_temperature,
-            max_tokens=settings.llm_max_tokens,
-        )
+        import os
+        if os.getenv("VLLM_API_BASE"):
+            from core.llm.vllm_client import VLLMClient
+            self.llm = VLLMClient(base_url=os.getenv("VLLM_API_BASE"), model=llm_name)
+        else:
+            self.llm = OllamaLLMClient(
+                model=llm_name,
+                base_url=ollama_url,
+                temperature=settings.llm_temperature,
+                max_tokens=settings.llm_max_tokens,
+            )
 
         # RAG retriever (optional)
         self._retriever = None
@@ -257,19 +262,28 @@ class SentinelPipeline:
             logger.info(f"[LLM] Reasoning with {self.llm.model}")
             t_llm = time.perf_counter()
 
+            # Step 3: Final LLM Answer Generation
+            start_llm = time.perf_counter()
             if stream:
                 full_answer = ""
+                # Stream directly, ReAct agent doesn't natively stream intermediate thoughts in this version
                 for token in self.llm.stream(llm_prompt, context=rag_context):
                     print(token, end="", flush=True)
                     full_answer += token
                 print()
-                llm_latency_ms = (time.perf_counter() - t_llm) * 1000
                 tokens_used = 0
             else:
-                llm_resp: LLMResponse = self.llm.generate(llm_prompt, context=rag_context)
-                llm_latency_ms = (time.perf_counter() - t_llm) * 1000
-                full_answer = llm_resp.content
-                tokens_used = llm_resp.total_tokens
+                if use_agent:
+                    from core.agent.orchestrator import ReActOrchestrator
+                    logger.info("Executing via ReAct Autonomous Agent...")
+                    orchestrator = ReActOrchestrator(self.llm)
+                    full_answer = orchestrator.run(vision_result.description, llm_prompt)
+                    tokens_used = 0 # Approx tracking for multi-step agent
+                else:
+                    llm_resp: LLMResponse = self.llm.generate(llm_prompt, context=rag_context)
+                    full_answer = llm_resp.content
+                    tokens_used = llm_resp.total_tokens
+            llm_latency_ms = (time.perf_counter() - start_llm) * 1000
 
             if hasattr(span, "set_attribute"):
                 span.set_attribute("tokens.total", tokens_used)

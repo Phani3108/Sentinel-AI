@@ -1,0 +1,12 @@
+INFO:     Started server process [97922]
+INFO:     Waiting for application startup.
+INFO:core.pipeline:Initializing SentinelPipeline: vision=llava, llm=llama3.1:8b, device=cpu
+INFO:api.main:✅ Pipeline initialized: SentinelPipeline(vision=LLaVA (llava:7b), llm=llama3.1:8b, device=cpu, rag=False)
+INFO:core.cache:✅ Redis Cache Connected.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8080 (Press CTRL+C to quit)
+INFO:     127.0.0.1:55576 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55663 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55671 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55784 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55788 - "GET /metrics HTTP/1.1" 200 OK

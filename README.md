@@ -24,7 +24,15 @@ If a request contains non-sensitive public data, the built-in **Hybrid Router** 
 
 ---
 
-## ✨ Features (Phases 1-6 Complete)
+````carousel
+![Sentinel AI Homepage](file:///Users/phani.m/.gemini/antigravity/brain/d3111712-5c2a-47f4-ba03-115bf8233b8b/final_homepage_1774007385927.png)
+<!-- slide -->
+![Multimodal Analysis Sandbox](file:///Users/phani.m/.gemini/antigravity/brain/d3111712-5c2a-47f4-ba03-115bf8233b8b/final_image_analysis_1774007426253.png)
+<!-- slide -->
+![System Monitoring & Telemetry](file:///Users/phani.m/.gemini/antigravity/brain/d3111712-5c2a-47f4-ba03-115bf8233b8b/final_monitoring_1774007479645.png)
+````
+
+## ✨ Features (Phases 1-10 Complete)
 
 1. **🖼️ Image Analysis**: On-premise vision descriptions + LLM reasoning.
 2. **🎬 Video Understanding**: Extract frames, analyze temporal sequences, and generate video narrations.

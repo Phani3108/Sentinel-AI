@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinel-worker
+  labels:
+    app: sentinel
+    component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      app: sentinel
+      component: worker
+  template:
+    metadata:
+      labels:
+        app: sentinel
+        component: worker
+    spec:
+      containers:
+        - name: sentinel-celery
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          command: ["celery", "-A", "core.worker", "worker", "--loglevel=info"]
+          env:
+            - name: REDIS_URL
+              value: "redis://sentinel-redis:6379/0"
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            - name: shared-jobs
+              mountPath: /app/data/jobs_staging
+      volumes:
+        - name: shared-jobs
+          persistentVolumeClaim:
+            claimName: sentinel-jobs-pvc
