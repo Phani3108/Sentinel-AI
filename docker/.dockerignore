@@ -1,0 +1,51 @@
+# Sentinel AI — Docker ignore rules
+# Applied to both Dockerfile.api and Dockerfile.frontend
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Git
+.git/
+.gitignore
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+
+# Heavy model files
+models/
+*.gguf
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# Data
+data/chroma_db/
+data/sample_images/
+data/sample_videos/
+
+# Notebooks / IDE
+*.ipynb
+.idea/
+.vscode/
+.DS_Store
+
+# Logs
+*.log
+data/routing_log.jsonl
+
+# Fine-tuning outputs
+finetune/checkpoints/
+finetune/data/
+finetune/reports/

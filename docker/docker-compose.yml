@@ -133,6 +133,23 @@ services:
       - ../data:/app/data
     restart: unless-stopped
 
+  # ---------------------------------------------------------
+  # Sentinel Frontend — Streamlit UI
+  # ---------------------------------------------------------
+  sentinel-frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+    container_name: sentinel-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      - STREAMLIT_SERVER_PORT=8501
+    depends_on:
+      sentinel-api:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   ollama_models:
   chroma_data:
