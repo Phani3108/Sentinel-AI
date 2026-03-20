@@ -1,0 +1,140 @@
+version: "3.9"
+
+# ============================================================
+# Sentinel AI — Full Stack Docker Compose
+# Runs: Ollama + ChromaDB + Prometheus + Grafana + Jaeger
+# ============================================================
+
+services:
+
+  # ---------------------------------------------------------
+  # Ollama — Local LLM + Vision Model Runtime
+  # ---------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: sentinel-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    # Uncomment to enable GPU:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Pull models after Ollama starts
+  ollama-init:
+    image: curlimages/curl:latest
+    container_name: sentinel-ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        curl -X POST http://ollama:11434/api/pull -d '{\"name\":\"llama3.1:8b\"}' &&
+        curl -X POST http://ollama:11434/api/pull -d '{\"name\":\"llava:7b\"}'
+      "
+    restart: on-failure
+
+  # ---------------------------------------------------------
+  # ChromaDB — Vector Store for RAG
+  # ---------------------------------------------------------
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: sentinel-chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - PERSIST_DIRECTORY=/chroma/chroma
+    restart: unless-stopped
+
+  # ---------------------------------------------------------
+  # Prometheus — Metrics Scraping
+  # ---------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sentinel-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+    restart: unless-stopped
+
+  # ---------------------------------------------------------
+  # Grafana — Dashboards
+  # ---------------------------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sentinel-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/dashboards:/etc/grafana/provisioning/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=sentinel123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+  # ---------------------------------------------------------
+  # Jaeger — Distributed Tracing
+  # ---------------------------------------------------------
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: sentinel-jaeger
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC receiver
+      - "4318:4318"     # OTLP HTTP receiver
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    restart: unless-stopped
+
+  # ---------------------------------------------------------
+  # Sentinel API — FastAPI Server
+  # ---------------------------------------------------------
+  sentinel-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+    container_name: sentinel-api
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../.env
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - CHROMA_HOST=chromadb
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4317
+    depends_on:
+      - ollama
+      - chromadb
+      - jaeger
+    volumes:
+      - ../data:/app/data
+    restart: unless-stopped
+
+volumes:
+  ollama_models:
+  chroma_data:
+  prometheus_data:
+  grafana_data:

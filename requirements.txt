@@ -1,0 +1,62 @@
+# ============================================================
+# Sentinel AI — Requirements
+# Private Multimodal AI Stack (On-Prem Vision + LLM)
+# ============================================================
+
+# --- Core ML / Vision ---
+torch>=2.1.0
+torchvision>=0.16.0
+transformers>=4.40.0
+accelerate>=0.27.0
+einops>=0.7.0
+timm>=0.9.12
+
+# --- HuggingFace Ecosystem ---
+huggingface-hub>=0.22.0
+datasets>=2.18.0
+peft>=0.10.0                # LoRA / QLoRA fine-tuning
+
+# --- Image / Video Processing ---
+Pillow>=10.2.0
+opencv-python>=4.9.0
+imageio>=2.34.0
+imageio-ffmpeg>=0.4.9
+
+# --- API & Streaming ---
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+websockets>=12.0
+python-multipart>=0.0.9
+httpx>=0.27.0
+
+# --- RAG & Vector Store ---
+chromadb>=0.4.24
+sentence-transformers>=2.6.1
+
+# --- Monitoring & Observability ---
+opentelemetry-api>=1.24.0
+opentelemetry-sdk>=1.24.0
+opentelemetry-exporter-otlp>=1.24.0
+opentelemetry-instrumentation-fastapi>=0.45b0
+prometheus-client>=0.20.0
+
+# --- Benchmarking & Profiling ---
+psutil>=5.9.8
+py-cpuinfo>=9.0.0
+rich>=13.7.0             # beautiful terminal output
+
+# --- MLflow (experiment tracking) ---
+mlflow>=2.12.1
+
+# --- Utilities ---
+python-dotenv>=1.0.1
+pydantic>=2.6.0
+pydantic-settings>=2.2.1
+numpy>=1.26.0
+pandas>=2.2.1
+matplotlib>=3.8.3
+tqdm>=4.66.2
+
+# --- Testing ---
+pytest>=8.1.0
+pytest-asyncio>=0.23.6

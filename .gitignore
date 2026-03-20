@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model weights (large binary files — store separately)
+models/
+*.gguf
+*.bin
+*.safetensors
+*.pt
+*.pth
+
+# Data (user-provided, not committed)
+data/sample_images/*.jpg
+data/sample_images/*.png
+data/sample_videos/*.mp4
+data/sample_videos/*.avi
+
+# Benchmark reports with timestamps
+benchmark/reports/*.json
+benchmark/reports/*.md
+
+# Monitoring / Docker volumes
+monitoring/dashboards/*.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Temp
+tmp/
+*.tmp
