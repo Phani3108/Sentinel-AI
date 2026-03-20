@@ -16,6 +16,14 @@ If a request contains non-sensitive public data, the built-in **Hybrid Router** 
 
 ---
 
+### UI Previews
+<p align="center">
+  <img src="frontend/assets/screenshot_homepage.png" width="48%" />
+  <img src="frontend/assets/screenshot_analysis.png" width="48%" />
+</p>
+
+---
+
 ## ✨ Features (Phases 1-6 Complete)
 
 1. **🖼️ Image Analysis**: On-premise vision descriptions + LLM reasoning.
