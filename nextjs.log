@@ -1,0 +1,113 @@
+
+> web@0.1.0 dev
+> next dev
+
+▲ Next.js 16.2.1 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://127.0.2.2:3000
+✓ Ready in 344ms
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/phani.m/package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/phani.m/Downloads/Sentinel AI/web/package-lock.json
+
+
+ GET / 200 in 2.2s (next.js: 2.0s, application-code: 175ms)
+⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "127.0.0.1".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['127.0.0.1'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 361ms (next.js: 288ms, application-code: 73ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 91ms (next.js: 8ms, application-code: 83ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 90ms (next.js: 4ms, application-code: 86ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 41ms (next.js: 4ms, application-code: 38ms)
+ GET / 200 in 50ms (next.js: 12ms, application-code: 38ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 46ms (next.js: 7ms, application-code: 40ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 42ms (next.js: 5ms, application-code: 37ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 40ms (next.js: 6ms, application-code: 34ms)

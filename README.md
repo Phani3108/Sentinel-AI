@@ -25,11 +25,11 @@ If a request contains non-sensitive public data, the built-in **Hybrid Router** 
 ---
 
 ````carousel
-![Sentinel AI Homepage](file:///Users/phani.m/.gemini/antigravity/brain/d3111712-5c2a-47f4-ba03-115bf8233b8b/final_homepage_1774007385927.png)
+![Sentinel AI Next.js Dashboard](/Users/phani.m/.gemini/antigravity/brain/d3111712-5c2a-47f4-ba03-115bf8233b8b/nextjs_home_loaded_1774081087799.png)
 <!-- slide -->
-![Multimodal Analysis Sandbox](file:///Users/phani.m/.gemini/antigravity/brain/d3111712-5c2a-47f4-ba03-115bf8233b8b/final_image_analysis_1774007426253.png)
+![Multimodal Analysis Sandbox](/Users/phani.m/.gemini/antigravity/brain/d3111712-5c2a-47f4-ba03-115bf8233b8b/nextjs_image_final_1774080964697.png)
 <!-- slide -->
-![System Monitoring & Telemetry](file:///Users/phani.m/.gemini/antigravity/brain/d3111712-5c2a-47f4-ba03-115bf8233b8b/final_monitoring_1774007479645.png)
+![Next.js Architecture Demo](/Users/phani.m/.gemini/antigravity/brain/d3111712-5c2a-47f4-ba03-115bf8233b8b/nextjs_google_labs_ui_1774079892041.webp)
 ````
 
 ## ✨ Features (Phases 1-10 Complete)
@@ -71,29 +71,12 @@ If a request contains non-sensitive public data, the built-in **Hybrid Router** 
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
-### Option 1: Docker Compose (Recommended)
-
-Everything runs inside Docker. Requires Docker Desktop or Linux with Compose.
-
-```bash
-# 1. Clone the repo
-git clone https://github.com/Phani3108/Sentinel-AI.git
-cd "Sentinel AI"
-
-# 2. Build and start all services
-docker compose -f docker/docker-compose.yml up --build -d
-
-# 3. Access the UIs
-# Frontend: http://localhost:8501
-# API Docs: http://localhost:8080/docs
+1. Clone repo, source venv, run `pip install -r requirements.txt`.
+2. Start API: `uvicorn api.main:app --port 8080`.
+3. Start UI: `cd web && npm run dev`. Access at `localhost:3000`.
 # Grafana:  http://localhost:3000 (admin / sentinel123)
-```
-
-### Option 2: Local Development
-
-Requires Python 3.12+ and [Ollama](https://ollama.com) installed natively.
 
 ```bash
 # 1. Start Ollama and pull models
