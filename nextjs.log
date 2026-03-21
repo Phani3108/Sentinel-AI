@@ -575,3 +575,19 @@ Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allow
  GET /image 500 in 75ms (next.js: 24ms, application-code: 51ms)
  GET /live 200 in 69ms (next.js: 40ms, application-code: 29ms)
  GET /live 200 in 81ms (next.js: 25ms, application-code: 56ms)
+ GET / 200 in 44ms (next.js: 10ms, application-code: 33ms)
+ GET / 200 in 76ms (next.js: 6ms, application-code: 69ms)
+ GET / 200 in 84ms (next.js: 40ms, application-code: 44ms)
+ GET /live 200 in 59ms (next.js: 13ms, application-code: 46ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 63ms (next.js: 11ms, application-code: 52ms)

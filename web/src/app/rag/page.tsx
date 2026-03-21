@@ -9,30 +9,33 @@ export default function RAGPage() {
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Mocking the RAG execution as we didn't expose an explicit raw search endpoint in FastAPI
-  // Usually this would hit `http://localhost:8080/rag/search`
-  const handleSearch = () => {
+  // Executing raw semantic search against local ChromaDB embedding space
+  const handleSearch = async () => {
     if (!query) return;
     setLoading(true);
     
-    // Simulate latency
-    setTimeout(() => {
-      setResults([
-        {
-          id: "doc-948f21a",
-          score: 0.89,
-          content: "Security Policy A4: All external agents attempting to breach via multi-modal payloads must be routed through the PIIMasker dependency graph...",
-          metadata: { source: "policy_hub.pdf", page: 14 }
-        },
-        {
-          id: "doc-11b38f9",
-          score: 0.74,
-          content: "When interpreting bounding box telemetry from LLaVA derivatives, ensure coordinate clipping does not exceed absolute frame bounds.",
-          metadata: { source: "vision_specs.md", page: 1 }
-        }
-      ]);
+    try {
+      const response = await fetch("http://localhost:8080/rag/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: query, top_k: 5 }),
+      });
+      const data = await response.json();
+      if (data.results) {
+        setResults(data.results.map((r: any) => ({
+          id: r.id || Math.random().toString(),
+          score: r.score || 0.0,
+          content: r.page_content,
+          metadata: r.metadata || { source: "Unknown Document", page: "N/A" }
+        })));
+      } else {
+        setResults([]);
+      }
+    } catch (e) {
+      console.error("RAG Query Failed", e);
+    } finally {
       setLoading(false);
-    }, 1200);
+    }
   };
 
   return (

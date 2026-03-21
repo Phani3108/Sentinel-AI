@@ -2,42 +2,28 @@ import base64
 import asyncio
 import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from pydantic import BaseModel
-
-from core.pipeline import ImagePipeline
-from core.llm.ollama_client import OllamaLLMClient
 
 logger = logging.getLogger(__name__)
 
 live_router = APIRouter(prefix="/live", tags=["Live Analytics"])
 
-# Singleton pipeline instances for the websocket worker
-_llm = OllamaLLMClient()
-_pipeline = ImagePipeline(_llm)
-
-def _process_frame_sync(image_bytes: bytes, tripwire: str) -> dict:
+def _process_frame_sync(pipeline, image_bytes: bytes, tripwire: str) -> dict:
     """Run the heavy synchronous LLM pipeline in an offloaded thread."""
     # Force the LLM to yield a strict JSON threat profile
-    system_prompt = (
-        "You are an elite automated Sentinel threat detection node. "
-        "Analyze the visual description and determine if the strictly defined user TRIPWIRE is breached. "
-        "Return EXACTLY this JSON format and nothing else: {'triggered': true/false, 'reason': 'short explanation'}"
-    )
-    
     prompt = f"TRIPWIRE: {tripwire}\nDetermine if this is breached."
     
     # Bypass streams to get the final JSON string
-    result = _pipeline.run_image(image_bytes, prompt, use_agent=False)
+    result = pipeline.run_image(image_bytes, prompt, use_agent=False)
     
     # Extremely basic heuristic parsing since local models might hallucinate strict JSON
-    ans = result.answer.lower()
+    ans = result.final_answer.lower()
     is_triggered = False
-    if "'triggered': true" in ans or '"triggered": true' in ans or "true" in ans and "false" not in ans:
+    if "'triggered': true" in ans or '"triggered": true' in ans or "yes" in ans or ("true" in ans and "false" not in ans):
         is_triggered = True
         
     return {
         "triggered": is_triggered,
-        "reason": result.answer,
+        "reason": result.final_answer,
         "vision_context": result.vision_description
     }
 
@@ -69,9 +55,12 @@ async def live_video_stream(websocket: WebSocket):
             except Exception as e:
                 await websocket.send_json({"error": f"Invalid frame encoding: {str(e)}"})
                 continue
+            
+            # Retrieve global singleton pipeline
+            pipeline = websocket.app.state.pipeline
 
             # Offload heavy synchronous ML inference to the AsyncIO threadpool
-            eval_result = await asyncio.to_thread(_process_frame_sync, image_bytes, tripwire)
+            eval_result = await asyncio.to_thread(_process_frame_sync, pipeline, image_bytes, tripwire)
             
             await websocket.send_json({
                 "status": "success",

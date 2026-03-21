@@ -135,6 +135,18 @@ export default function LiveMonitoringPage() {
                </div>
             )}
           </div>
+
+          {/* WebRTC Fallback Warning */}
+          {status === "ERROR" && (
+            <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center p-8 text-center backdrop-blur-sm z-10 border border-red-500/30">
+              <AlertTriangle className="text-red-500 mb-4" size={48} />
+              <h2 className="text-xl font-bold text-white mb-2">Camera Hardware Access Denied</h2>
+              <p className="text-red-200 text-sm max-w-md">
+                Active Sentinel uses the HTML5 WebRTC standard (`navigator.mediaDevices`). Your browser has blocked physical camera access. 
+                Please ensure you are loading this application from <strong>http://localhost:3000</strong> explicitly, and click the camera icon in your URL bar to grant tracking permissions.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="bg-card-bg border border-border rounded-2xl p-6 shadow-labs space-y-4">

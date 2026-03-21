@@ -1,15 +1,24 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Activity, Cpu, Server, Database, TrendingUp, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function MonitoringPage() {
+  const [sysHealth, setSysHealth] = useState<any>(null);
+  const [ragStats, setRagStats] = useState<any>(null);
+
+  useEffect(() => {
+    fetch("http://localhost:8080/health").then(r => r.json()).then(setSysHealth).catch(console.error);
+    fetch("http://localhost:8080/rag/stats").then(r => r.json()).then(setRagStats).catch(console.error);
+  }, []);
+
   const metrics = [
-    { label: "Pipeline Latency (P99)", value: "842ms", trend: "+12ms", icon: Activity, color: "text-primary", bg: "bg-primary/10" },
-    { label: "Vision Model VRAM", value: "4.2 GB", trend: "Stable", icon: Cpu, color: "text-blue-500", bg: "bg-blue-500/10" },
-    { label: "LLM Tokens / Sec", value: "48 t/s", trend: "+5 t/s", icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10" },
-    { label: "Celery Workers", value: "4 / 4", trend: "0 Idle", icon: Server, color: "text-purple-500", bg: "bg-purple-500/10" },
-    { label: "ChromaDB Nodes", value: "152.1k", trend: "+1k", icon: Database, color: "text-orange-500", bg: "bg-orange-500/10" },
+    { label: "Pipeline Latency (P99)", value: "Connected", trend: "Live", icon: Activity, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Active Inference Model", value: sysHealth?.vision_model || "Loading...", trend: "VRAM Locked", icon: Cpu, color: "text-blue-500", bg: "bg-blue-500/10" },
+    { label: "Active Generative LLM", value: sysHealth?.llm_model || "Loading...", trend: "Mapped", icon: TrendingUp, color: "text-green-500", bg: "bg-green-500/10" },
+    { label: "Hardware Accel", value: sysHealth?.device?.toUpperCase() || "CPU", trend: "Operational", icon: Server, color: "text-purple-500", bg: "bg-purple-500/10" },
+    { label: "ChromaDB Nodes", value: ragStats ? `${ragStats.document_count} docs` : "0", trend: "Indexed", icon: Database, color: "text-orange-500", bg: "bg-orange-500/10" },
   ];
 
   return (

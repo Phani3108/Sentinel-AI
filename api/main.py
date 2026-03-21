@@ -25,10 +25,13 @@ from core.config import get_settings
 from core.pipeline import SentinelPipeline
 
 # Phase 8 Caching & Async Jobs
-from api.system import system_router
-from api.video import video_router
-from api.jobs import jobs_router
-from api.feedback import feedback_router
+from core.cache import get_cache
+from api.jobs import router as jobs_router
+
+# Phase 9 Feedback Loop
+from api.feedback import router as feedback_router
+
+# Phase 12 Live Engine
 from api.live import live_router
 
 # Phase 7 Security Modules
@@ -71,7 +74,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"✅ Pipeline initialized: {_pipeline}")
     # Prime singletons
     get_audit_logger()
-    # get_cache() # Removed as per user's implicit instruction in the diff
+    get_cache()
+    # Inject into global context for websocket routers avoiding circular imports
+    app.state.pipeline = _pipeline
     yield
     logger.info("Shutting down Sentinel AI API...")
 
@@ -89,8 +94,6 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-app.include_router(system_router)
-app.include_router(video_router)
 app.include_router(jobs_router)
 app.include_router(feedback_router)
 app.include_router(live_router)

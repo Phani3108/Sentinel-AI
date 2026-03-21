@@ -1,10 +1,19 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Shield, Image as ImageIcon, Video, Search, Activity, Cpu } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Home() {
+  const [health, setHealth] = useState<any>(null);
+
+  useEffect(() => {
+    fetch("http://localhost:8080/health")
+      .then(res => res.json())
+      .then(data => setHealth(data))
+      .catch(e => console.error("FastAPI unreachable", e));
+  }, []);
   const tools = [
     {
       name: "Image Analysis",
@@ -40,8 +49,9 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-4"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-semibold">
-            <Cpu size={16} /> Sentinel AI v10.0
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold border border-primary/20">
+            <Cpu size={16} /> 
+            Sentinel AI v10.0 {health ? ` · ${health.vision_model} & ${health.llm_model} ONLINE` : "· Mapped"}
           </div>
           <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground">
             Enterprise Multimodal Engine
