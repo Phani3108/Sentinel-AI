@@ -34,6 +34,9 @@ from api.feedback import router as feedback_router
 # Phase 12 Live Engine
 from api.live import live_router
 
+# Phase 14 Swarm Intelligence
+from api.swarm import swarm_router
+
 # Phase 7 Security Modules
 from api.security.auth import get_current_user, UserAccount, UserRole
 from api.security.rbac import require_role
@@ -97,6 +100,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(jobs_router)
 app.include_router(feedback_router)
 app.include_router(live_router)
+app.include_router(swarm_router)
 
 # Mount static metrics dashboard
 app.mount("/metrics-dashboard", StaticFiles(directory="monitoring/dashboards"), name="metrics-ui")

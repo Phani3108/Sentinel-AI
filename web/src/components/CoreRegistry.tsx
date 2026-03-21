@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { Shield, ImageIcon, Video, Search, Activity, Camera } from 'lucide-react';
+import { Shield, ImageIcon, Video, Search, Activity, Camera, Users } from 'lucide-react';
 
 /**
  * CORE REGISTRY
@@ -14,6 +14,7 @@ import { Shield, ImageIcon, Video, Search, Activity, Camera } from 'lucide-react
 export const useAppRoutes = () => {
   return [
     { href: "/", label: "Dashboard", icon: Shield },
+    { href: "/swarm", label: "Swarm Arena", icon: Users },
     { href: "/live", label: "Active Sentinel", icon: Camera },
     { href: "/image", label: "Image Analysis", icon: ImageIcon },
     { href: "/video", label: "Video Pipeline", icon: Video },
