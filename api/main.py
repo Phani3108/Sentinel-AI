@@ -40,6 +40,15 @@ from api.swarm import swarm_router
 # Phase 19 Advanced Threat Hunting
 from api.hunting import hunting_router
 
+# Phase 20 Fleet Telemetry
+from api.fleet import fleet_router
+
+# Phase 22 Containment Interlocks
+from api.containment import containment_router
+
+# Phase 23 Hive Mind Memory Synchronization
+from api.memory import memory_router
+
 # Phase 7 Security Modules
 from api.security.auth import get_current_user, UserAccount, UserRole
 from api.security.rbac import require_role
@@ -105,6 +114,9 @@ app.include_router(feedback_router)
 app.include_router(live_router)
 app.include_router(swarm_router)
 app.include_router(hunting_router)
+app.include_router(fleet_router)
+app.include_router(containment_router)
+app.include_router(memory_router)
 
 # Mount static metrics dashboard
 app.mount("/metrics-dashboard", StaticFiles(directory="monitoring/dashboards"), name="metrics-ui")

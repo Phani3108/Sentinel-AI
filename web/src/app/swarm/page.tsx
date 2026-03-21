@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Users, Bot, ShieldAlert, Cpu, Network, UploadCloud, Loader2, AlertTriangle } from "lucide-react";
+import { Users, Bot, ShieldAlert, Cpu, Network, UploadCloud, Loader2, AlertTriangle, Lock, Key } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 type SwarmEvent = {
@@ -17,6 +17,10 @@ export default function SwarmArenaPage() {
   
   const [isSwarming, setIsSwarming] = useState(false);
   const [webhookFired, setWebhookFired] = useState(false);
+  
+  // Phase 22: Containment Interlocks
+  const [lockedIncident, setLockedIncident] = useState<string | null>(null);
+  
   const [events, setEvents] = useState<SwarmEvent[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -38,6 +42,7 @@ export default function SwarmArenaPage() {
     if (!file) return;
     setIsSwarming(true);
     setWebhookFired(false);
+    setLockedIncident(null);
     setEvents([]);
 
     const formData = new FormData();
@@ -75,8 +80,14 @@ export default function SwarmArenaPage() {
               break;
             }
             
-            if (data.node === "action_agent") {
+            if (data.node === "action_agent" && data.message.includes("CRITICAL payload to Enterprise Webhook Hub")) {
               setWebhookFired(true);
+            }
+            
+            // Phase 22: Regex explicitly extracting the Python dict `incident_id` if present
+            if (data.message.includes("[CONTAINMENT_LOCK]")) {
+               const match = data.message.match(/\[(INC-[A-Z0-9]{6})\]/);
+               if (match) setLockedIncident(match[1]);
             }
             
             setEvents((prev) => [
@@ -112,6 +123,25 @@ export default function SwarmArenaPage() {
     if (node === "intel_agent") return <ShieldAlert size={16} />;
     if (node === "action_agent") return <AlertTriangle size={16} className="animate-pulse" />;
     return <Bot size={16} />;
+  };
+  
+  const approveContainment = async () => {
+     if (!lockedIncident) return;
+     try {
+       const res = await fetch("http://localhost:8080/containment/approve", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({ incident_id: lockedIncident })
+       });
+       const data = await res.json();
+       if (data.status === "success") {
+          setLockedIncident(null);
+          setWebhookFired(true); // Physically executes post-unlock
+          setEvents(prev => [...prev, { id: Math.random().toString(), node: "action_agent", message: `[ACTION_AGENT]: Admin Key Accepted. ${data.message}` }]);
+       }
+     } catch (e) {
+       console.error("Lock override failed", e);
+     }
   };
 
   return (
@@ -177,6 +207,34 @@ export default function SwarmArenaPage() {
                 <div>
                    <h4 className="font-bold text-lg leading-tight uppercase tracking-widest">Autonomous Remediation Triggered</h4>
                    <p className="text-red-100 text-sm">Action Agent has physically dispatched the incident payload via Enterprise Webhook Hub.</p>
+                </div>
+              </motion.div>
+            )}
+            
+            {/* Phase 22: Containment Approval Core */}
+            {lockedIncident && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
+              >
+                <div className="bg-[#1C1C1E] border border-orange-500/50 rounded-2xl p-8 max-w-md w-full shadow-[0_0_50px_rgba(249,115,22,0.2)] flex flex-col items-center text-center">
+                   <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mb-6 border border-orange-500/20">
+                     <Lock className="text-orange-500" size={32} />
+                   </div>
+                   <h3 className="text-xl font-bold text-white mb-2">Security Clearance Required</h3>
+                   <p className="text-muted-foreground text-sm mb-6">
+                     The Swarm evaluated the matrix as CRITICAL. Your Operator role restricts autonomous action dispatch. 
+                     <br/><br/>
+                     <span className="font-mono text-orange-400 bg-orange-400/10 px-2 py-1 rounded">ID: {lockedIncident}</span>
+                   </p>
+                   
+                   <div className="flex w-full gap-4">
+                      <button onClick={() => setLockedIncident(null)} className="flex-1 px-4 py-3 rounded-xl border border-border text-white hover:bg-white/5 transition-all">Abort</button>
+                      <button onClick={approveContainment} className="flex-1 px-4 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold flex items-center justify-center gap-2 transition-all">
+                        <Key size={16} /> Admin Override
+                      </button>
+                   </div>
                 </div>
               </motion.div>
             )}

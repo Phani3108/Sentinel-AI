@@ -43,3 +43,28 @@ class EpisodicMemory:
             return "\n".join([d.page_content for d in docs])
         except Exception:
             return ""
+
+    def export_memory(self, limit: int = 50) -> list:
+        """Raw extraction of the latest vector encodings for outbound peer synchronization."""
+        if not self.db: 
+            return []
+        try:
+            docs = self.db.get(limit=limit)
+            results = []
+            for doc, meta in zip(docs.get('documents', []), docs.get('metadatas', [])):
+                results.append({"document": doc, "metadata": meta})
+            return results
+        except Exception as e:
+            return []
+
+    def import_memory(self, episodes: list):
+        """Native ingestion of foreign Edge Node metadata straight into the active Chroma core."""
+        if not self.db or not episodes: 
+            return
+        try:
+            texts = [e["document"] for e in episodes if "document" in e]
+            metas = [e["metadata"] for e in episodes if "metadata" in e]
+            self.db.add_texts(texts=texts, metadatas=metas)
+            logger.info(f"HiveMind: Absorbed {len(texts)} foreign matrix episodes into the local construct.")
+        except Exception as e:
+            logger.error(f"HiveMind Ingestion failure: {e}")

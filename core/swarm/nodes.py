@@ -136,10 +136,14 @@ def action_node(state: SwarmState) -> Dict[str, Any]:
     from core.integrations.webhooks import ActionEngine
     from core.memory.episodic import EpisodicMemory
     from core.security.ledger import ImmutableLedger
+    from core.security.containment import containment_manager
     
     threat_level = state.get("threat_level", "UNKNOWN")
     vision_context = state.get("vision_context", "Undefined")
     tripwire = state.get("tripwire", "Undefined")
+    
+    # Simulate a standard "Operator" UI user lacking extreme clearance
+    user_role = "OPERATOR" 
     
     logger.info("Swarm: Action Agent executing autonomous remediation strategies.")
     
@@ -153,8 +157,16 @@ def action_node(state: SwarmState) -> Dict[str, Any]:
     
     if threat_level == "CRITICAL":
         payload = f"*Tripwire Breached:* {tripwire}\n*Topology:* {vision_context}"
-        res = ActionEngine.dispatch_slack_alert(message=payload, severity="CRITICAL")
-        msg = f"[ACTION_AGENT]: Dispatched CRITICAL payload to Enterprise Webhook Hub (Status: {res['status']})."
+        
+        if user_role == "ADMIN":
+            res = ActionEngine.dispatch_slack_alert(message=payload, severity="CRITICAL")
+            msg = f"[ACTION_AGENT]: Dispatched CRITICAL payload to Enterprise Webhook Hub."
+        else:
+            # Enforce Human-In-The-Loop strictness
+            incident_id = containment_manager.lock_incident(payload)
+            msg = f"[CONTAINMENT_LOCK]: Operator lacks authorization. Swarm halted. Incident [{incident_id}] locked. Awaiting explicit Admin Override."
+            return {"messages": [AIMessage(content=msg)], "incident_id": incident_id}
+            
     else:
         msg = f"[ACTION_AGENT]: Escalation protocol aborted. Threat level '{threat_level}' does not meet CRITICAL threshold."
         

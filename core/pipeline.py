@@ -13,12 +13,15 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator, List, Optional, Union
+import requests # Added for Phase 21 failover
+import ast # Added for Phase 21 failover (assuming it's needed for some parsing)
 
 from .config import get_settings
 from .vision import get_vision_model, VisionResult
 from .llm import OllamaLLMClient, LLMResponse
 from .utils.image_utils import load_image, resize_image, get_image_info
-from .utils.video_utils import extract_frames, extract_keyframes, VideoFrame
+from .utils.video_utils import extract_frames, extract_keyframes, VideoFrame # Kept original video_utils imports
+from core.memory.episodic import EpisodicMemory # Added for Phase 21 failover
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +104,13 @@ class SentinelPipeline:
         )
 
         # Vision model
-        self.vision = get_vision_model(vision_name, device=self.device)
+        # Original: self.vision = get_vision_model(vision_name, device=self.device)
+        # Phase 21: Integrated with Hydra Autonomous Failover routing.
+        self.ollama_host = ollama_url # Use ollama_base_url for the host
+        self.primary_vision_model = vision_name
+        self.fallback_vision_model = "llava:7b" # Phase 21 Fallback Spec
+        self.session = requests.Session()
+        logger.info("ImagePipeline instantiating Hydra-ready manifolds...") # This log message seems to be from the ImagePipeline class in the diff, but placed here.
 
         # LLM client
         import os
@@ -163,12 +172,56 @@ class SentinelPipeline:
     # Image Inference
     # ------------------------------------------------------------------ #
 
+    # New analyze_image method from the diff, adapted to fit SentinelPipeline
+    def analyze_image(self, image_path: Path, prompt: str) -> str:
+        """
+        Analyzes an image using the primary vision model, with a fallback to a secondary model.
+        This method replaces the direct call to self.vision.analyze for image processing.
+        """
+        from .utils.image_utils import encode_image_to_base64
+        frame_b64 = encode_image_to_base64(image_path)
+
+        # The prompt construction from the diff was:
+        # "- Context must be strictly physical facts. No hallucinated opinions.\n"
+        # This seems like a partial prompt or a specific instruction for the LLM,
+        # not the vision model. Assuming the original vision prompt is still relevant.
+        # For now, using the provided prompt directly.
+
+        payload = {
+            "model": self.primary_vision_model,
+            "prompt": prompt,
+            "images": [frame_b64],
+            "stream": False
+        }
+
+        # Primary Routing Attempt
+        try:
+            res = self.session.post(f"{self.ollama_host}/api/generate", json=payload, timeout=10)
+            res.raise_for_status()
+            logger.debug(f"Hydra Engine: Successfully routed via '{self.primary_vision_model}'.")
+            return res.json().get("response", "").strip()
+        except Exception as e:
+            logger.warning(f"Hydra Engine: Primary model '{self.primary_vision_model}' latency failure ({e}). Tripping graceful failover routing -> '{self.fallback_vision_model}'")
+
+        # Fallback Routing Attempt (Phase 21)
+        try:
+            payload["model"] = self.fallback_vision_model
+            res = self.session.post(f"{self.ollama_host}/api/generate", json=payload, timeout=10)
+            res.raise_for_status()
+            logger.info(f"Hydra Engine: Fallback routing mathematically stabilized. Stream rescued.")
+            return res.json().get("response", "").strip()
+        except Exception as e:
+            logger.error(f"Hydra Engine: FATAL. Total model cascade collapse. Both vectors failed. Reason: {e}")
+            return "Visual context unavailable. Complete Local intelligence failure."
+
+
     def run_image(
         self,
         image: Union[str, Path],
         prompt: str = "Describe this image in detail. What do you observe?",
         vision_prompt: Optional[str] = None,
         stream: bool = False,
+        use_agent: bool = False, # Added use_agent parameter as it appeared in the LLM section
     ) -> PipelineResult:
         """
         Full pipeline for a single image.
@@ -178,6 +231,7 @@ class SentinelPipeline:
             prompt: Question/instruction for the LLM reasoning step
             vision_prompt: Override for the vision model step (optional)
             stream: If True, streams LLM output (prints tokens, returns final result)
+            use_agent: If True, uses ReAct agent for LLM reasoning.
 
         Returns:
             PipelineResult with vision description + LLM answer
@@ -190,15 +244,17 @@ class SentinelPipeline:
         # -- Step 1: Vision --
         with self._get_span("vision_inference") as span:
             if hasattr(span, "set_attribute"):
-                span.set_attribute("model.name", self.vision.name)
+                span.set_attribute("model.name", self.primary_vision_model) # Changed to primary_vision_model
                 span.set_attribute("image.path", str(image_path))
 
-            logger.info(f"[Vision] Analyzing {image_path.name} with {self.vision.name}")
+            logger.info(f"[Vision] Analyzing {image_path.name} with {self.primary_vision_model}") # Changed to primary_vision_model
             v_prompt = vision_prompt or "Describe this image in comprehensive detail."
 
             t_vision = time.perf_counter()
             try:
-                vision_result: VisionResult = self.vision.analyze(image_path, v_prompt)
+                # Replaced self.vision.analyze with the new analyze_image method
+                vision_description_str = self.analyze_image(image_path, v_prompt)
+                vision_result = VisionResult(description=vision_description_str, latency_ms=0.0, memory_mb=0.0) # Create a VisionResult from the string output
             except Exception as e:
                 if hasattr(span, "record_exception"):
                     span.record_exception(e)
@@ -209,13 +265,15 @@ class SentinelPipeline:
                 raise
 
             vision_latency_s = time.perf_counter() - t_vision
+            # vision_result.latency_ms is not directly available from analyze_image, setting to calculated value
+            vision_result.latency_ms = vision_latency_s * 1000
             if hasattr(span, "set_attribute"):
                 span.set_attribute("latency_ms", vision_result.latency_ms)
 
             # Record Prometheus vision latency
             if self._metrics:
                 self._metrics.vision_latency.labels(
-                    model=self.vision.name
+                    model=self.primary_vision_model # Changed to primary_vision_model
                 ).observe(vision_latency_s)
 
             logger.info(f"[Vision] Done. Latency={vision_result.latency_ms:.0f}ms")

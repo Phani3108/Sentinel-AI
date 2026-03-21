@@ -14,6 +14,7 @@ import { Shield, ImageIcon, Video, Search, Activity, Camera, Users } from 'lucid
 export const useAppRoutes = () => {
   return [
     { href: "/", label: "Dashboard", icon: Shield },
+    { href: "/fleet", label: "Fleet Command", icon: Activity },
     { href: "/swarm", label: "Swarm Arena", icon: Users },
     { href: "/hunting", label: "Threat Hunting", icon: Search },
     { href: "/live", label: "Active Sentinel", icon: Camera },

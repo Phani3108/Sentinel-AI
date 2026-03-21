@@ -81,6 +81,8 @@ async def sensor_stream(websocket: WebSocket):
     Dedicated enterprise ingest port for disconnected Edge Nodes (e.g. Raspberry Pis).
     Enforces JWT/Node-Token authentication to prevent unauthorized video uploads.
     """
+    from core.fleet import fleet_manager
+    
     node_token = websocket.headers.get("X-Node-Token")
     if node_token != "edge-device-secret-123":
         logger.warning(f"Unauthorized edge node connection attempt. Token: {node_token}")
@@ -88,13 +90,15 @@ async def sensor_stream(websocket: WebSocket):
         return
         
     await websocket.accept()
-    logger.info("Physical EDGE NODE uplink authenticated.")
+    node_id = fleet_manager.register_node()
+    logger.info(f"Physical EDGE NODE uplink authenticated. Fleet ID: {node_id}")
     
     tripwire = "Analyze environment for generic threats."
     
     try:
         while True:
             data_str = await websocket.receive_text()
+            fleet_manager.ping_node(node_id)
             try:
                 msg = json.loads(data_str)
             except json.JSONDecodeError:
@@ -130,3 +134,6 @@ async def sensor_stream(websocket: WebSocket):
         logger.info("Edge Node Uplink severed.")
     except Exception as e:
         logger.error(f"Edge Node unhandled fault: {e}")
+    finally:
+        from core.fleet import fleet_manager
+        fleet_manager.disconnect_node(node_id)
