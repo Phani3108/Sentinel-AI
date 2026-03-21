@@ -65,11 +65,68 @@ async def live_video_stream(websocket: WebSocket):
             await websocket.send_json({
                 "status": "success",
                 "triggered": eval_result["triggered"],
-                "analysis": eval_result["reason"],
-                "vision": eval_result["vision_context"]
+                "inference": eval_result,
+                "latency_ms": 0 # TODO: wire up latency
             })
             
     except WebSocketDisconnect:
-        logger.info("Live WebSocket disconnected by client.")
+        logger.info("Live Monitoring Client Disconnected.")
     except Exception as e:
-        logger.error(f"WebSocket fatal error: {e}")
+        logger.error(f"Live websocket unhandled fault: {e}")
+
+
+@live_router.websocket("/sensor")
+async def sensor_stream(websocket: WebSocket):
+    """
+    Dedicated enterprise ingest port for disconnected Edge Nodes (e.g. Raspberry Pis).
+    Enforces JWT/Node-Token authentication to prevent unauthorized video uploads.
+    """
+    node_token = websocket.headers.get("X-Node-Token")
+    if node_token != "edge-device-secret-123":
+        logger.warning(f"Unauthorized edge node connection attempt. Token: {node_token}")
+        await websocket.close(code=1008)
+        return
+        
+    await websocket.accept()
+    logger.info("Physical EDGE NODE uplink authenticated.")
+    
+    tripwire = "Analyze environment for generic threats."
+    
+    try:
+        while True:
+            data_str = await websocket.receive_text()
+            try:
+                msg = json.loads(data_str)
+            except json.JSONDecodeError:
+                await websocket.send_json({"error": "Strict JSON required."})
+                continue
+                
+            if msg.get("type") == "init":
+                tripwire = msg.get("tripwire", tripwire)
+                logger.info(f"Edge Node initialized tripwire: {tripwire}")
+                continue
+                
+            if msg.get("type") == "frame":
+                frame_b64 = msg.get("frame", "")
+                
+                try:
+                    image_bytes = base64.b64decode(frame_b64)
+                except Exception as e:
+                    await websocket.send_json({"error": f"Invalid frame encoding: {str(e)}"})
+                    continue
+                
+                # Retrieve global singleton
+                pipeline = websocket.app.state.pipeline
+
+                # Offload to AI Executor
+                eval_result = await asyncio.to_thread(_process_frame_sync, pipeline, image_bytes, tripwire)
+                
+                await websocket.send_json({
+                    "status": "success",
+                    "inference": eval_result
+                })
+                
+    except WebSocketDisconnect:
+        logger.info("Edge Node Uplink severed.")
+    except Exception as e:
+        logger.error(f"Edge Node unhandled fault: {e}")

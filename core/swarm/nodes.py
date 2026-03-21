@@ -135,6 +135,7 @@ def action_node(state: SwarmState) -> Dict[str, Any]:
     """
     from core.integrations.webhooks import ActionEngine
     from core.memory.episodic import EpisodicMemory
+    from core.security.ledger import ImmutableLedger
     
     threat_level = state.get("threat_level", "UNKNOWN")
     vision_context = state.get("vision_context", "Undefined")
@@ -145,6 +146,10 @@ def action_node(state: SwarmState) -> Dict[str, Any]:
     # Persist the event to Long-term Memory for future Swarm queries
     mem = EpisodicMemory()
     mem.store_episode(entity_description=vision_context, threat_level=threat_level)
+    
+    # Cryptographically seal this Swarm decision to prevent tampering
+    ledger = ImmutableLedger()
+    ledger.record_event("SWARM_DECISION", {"threat_level": threat_level, "tripwire": tripwire, "vision_ctx": vision_context})
     
     if threat_level == "CRITICAL":
         payload = f"*Tripwire Breached:* {tripwire}\n*Topology:* {vision_context}"

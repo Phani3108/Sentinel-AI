@@ -1,18 +1,22 @@
-"use client";
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Shield, Image as ImageIcon, Video, Search, Activity, Cpu } from "lucide-react";
+import { Shield, Image as ImageIcon, Video, Search, Activity, Cpu, Link as LinkIcon, AlertTriangle } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function Home() {
   const [health, setHealth] = useState<any>(null);
+  const [ledger, setLedger] = useState<any>(null);
 
   useEffect(() => {
     fetch("http://localhost:8080/health")
       .then(res => res.json())
       .then(data => setHealth(data))
       .catch(e => console.error("FastAPI unreachable", e));
+      
+    fetch("http://localhost:8080/system/audit/verify")
+      .then(res => res.json())
+      .then(setLedger)
+      .catch(e => console.error("Ledger unreachable", e));
   }, []);
   const tools = [
     {
@@ -49,9 +53,20 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-4"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold border border-primary/20">
-            <Cpu size={16} /> 
-            Sentinel AI v10.0 {health ? ` · ${health.vision_model} & ${health.llm_model} ONLINE` : "· Mapped"}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold border border-primary/20">
+              <Cpu size={16} /> 
+              Sentinel AI v10.0 {health ? ` · ${health.vision_model} & ${health.llm_model} ONLINE` : "· Mapped"}
+            </div>
+            
+            {ledger && (
+              <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold border ${
+                ledger.valid ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"
+              }`}>
+                {ledger.valid ? <LinkIcon size={16} /> : <AlertTriangle size={16} />}
+                {ledger.valid ? `ZERO-TRUST LEDGER · ${ledger.blocks} BLOCKS SECURE` : "MUTATED LEDGER DETECTED"}
+              </div>
+            )}
           </div>
           <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground">
             Enterprise Multimodal Engine

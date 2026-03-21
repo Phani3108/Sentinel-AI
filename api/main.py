@@ -37,6 +37,9 @@ from api.live import live_router
 # Phase 14 Swarm Intelligence
 from api.swarm import swarm_router
 
+# Phase 19 Advanced Threat Hunting
+from api.hunting import hunting_router
+
 # Phase 7 Security Modules
 from api.security.auth import get_current_user, UserAccount, UserRole
 from api.security.rbac import require_role
@@ -101,6 +104,7 @@ app.include_router(jobs_router)
 app.include_router(feedback_router)
 app.include_router(live_router)
 app.include_router(swarm_router)
+app.include_router(hunting_router)
 
 # Mount static metrics dashboard
 app.mount("/metrics-dashboard", StaticFiles(directory="monitoring/dashboards"), name="metrics-ui")
@@ -154,6 +158,13 @@ async def mock_slack_webhook(request: Request):
     logger.info(f"MOCK SLACK RECEIVED WEBHOCK: {payload.get('text')}")
     # Echos back the receipt for the Action Node to verify success
     return {"status": "received_by_slack_mock", "message_length": len(payload.get("text", ""))}
+
+@app.get("/system/audit/verify", tags=["System"])
+def verify_audit_ledger():
+    """Mathematically recurses the SQL database to prove logs have not been retroactively tapered with."""
+    from core.security.ledger import ImmutableLedger
+    ledger = ImmutableLedger()
+    return ledger.verify_chain()
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health():

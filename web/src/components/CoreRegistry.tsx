@@ -15,6 +15,7 @@ export const useAppRoutes = () => {
   return [
     { href: "/", label: "Dashboard", icon: Shield },
     { href: "/swarm", label: "Swarm Arena", icon: Users },
+    { href: "/hunting", label: "Threat Hunting", icon: Search },
     { href: "/live", label: "Active Sentinel", icon: Camera },
     { href: "/image", label: "Image Analysis", icon: ImageIcon },
     { href: "/video", label: "Video Pipeline", icon: Video },
