@@ -88,7 +88,12 @@ def vision_node(state: SwarmState) -> Dict[str, Any]:
     
     msg = HumanMessage(
         content=[
-            {"type": "text", "text": "Detail every object, person, anomaly, and action occurring in this image with extreme deterministic accuracy."},
+            {
+                "type": "text", 
+                "text": "Detail every object, person, anomaly, and action occurring in this image with extreme deterministic accuracy. "
+                        "Phase 28 Protocol: Rigorously analyze this image for Deepfake or AI-Generative artifacts (e.g., impossible lighting, non-euclidean geometry, synthetic noise). "
+                        "Explicitly conclude with whether the media is 'VERIFIED_GENUINE' or 'SYNTHETIC_DEEPFAKE'."
+            },
             {"type": "image_url", "image_url": f"data:image/jpeg;base64,{img_b64}"}
         ]
     )
@@ -99,6 +104,23 @@ def vision_node(state: SwarmState) -> Dict[str, Any]:
         output = response.content.strip()
     except Exception as e:
         output = f"Vision Model pipeline failure: {e}"
+
+    # Phase 27: Autonomous Video Synthesis Trigger (Optical Bypass)
+    obscured_keywords = ["obscured", "blinded", "destroyed", "black screen", "camera failure", "spray"]
+    if any(k in output.lower() for k in obscured_keywords):
+        logger.warning(f"Swarm Vision: Optical failure detected. Triggering deep generative video interpolation bypass.")
+        import requests
+        try:
+           synth_res = requests.post("http://localhost:8080/generative/synthesize", json={
+               "tripwire": "Analyze threat environment.", 
+               "last_known_context": "Pre-Incident frame sequence detected subjects approaching optical sensors."
+           }, timeout=10)
+           gen_video = synth_res.json().get("video_url", "")
+           vision_msg = f"[VISION_AGENT]: Critical optical geometry compromised. Booting Generative Stable-Video-Diffusion utilizing contextual prior frames. Synthesizing visual topology interpolation... \n\n[SYNTHETIC_GENERATION_URL]: {gen_video}"
+        except Exception as e:
+           vision_msg = f"[VISION_AGENT]: Camera destroyed. Generative synthesis engine failed: {e}"
+           
+        return {"vision_context": "SYNTHETIC_RECONSTRUCTION", "messages": [AIMessage(content=vision_msg)]}
 
     return {
         "vision_context": output,
@@ -170,6 +192,30 @@ def action_node(state: SwarmState) -> Dict[str, Any]:
     else:
         msg = f"[ACTION_AGENT]: Escalation protocol aborted. Threat level '{threat_level}' does not meet CRITICAL threshold."
         
-    return {
-        "messages": [AIMessage(content=msg)]
-    }
+    return {"messages": [AIMessage(content=msg)]}
+
+def translator_node(state: SwarmState) -> Dict[str, Any]:
+    """
+    Phase 24: Global Vernacular Localization
+    Intercepts the final Orchestrator payload and mathematically translates the 
+    Action Agent's native English dispatch into local indigenous dialects (e.g. Hindi, Japanese, Spanish)
+    based strictly on the Edge Node's geopolitical registry.
+    """
+    from core.language.translator import translator_engine
+    
+    if not state.get("messages"): return {}
+    last_msg = state["messages"][-1].content
+    
+    # We only care about translating active physical dispatches or containment locks
+    if "[ACTION_AGENT]" not in last_msg and "[CONTAINMENT_LOCK]" not in last_msg:
+        return {}
+        
+    region = state.get("region", "AP-SOUTH-1") # Hardcode an Indian Edge node deployment mock
+    
+    localized_text = translator_engine.translate_payload(last_msg, region)
+    
+    if localized_text != last_msg:
+        msg = f"[BABEL_TRANSLATOR]: Foreign intercept routing successful. Translated payload for physical authorities in {region}:\n{localized_text}"
+        return {"messages": [AIMessage(content=msg)]}
+        
+    return {}

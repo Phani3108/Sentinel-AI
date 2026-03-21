@@ -12,6 +12,19 @@
   --muted-foreground: #5F6368;
 }
 
+.crisis-mode {
+  /* Phase 29: Brutalist Red/Black AI Threat Interpolation */
+  --background: #090000;
+  --foreground: #FFD4D4;
+  --card-bg: #150000;
+  --border: #4A0000;
+  --primary: #FF1A1A;
+  --primary-hover: #D00000;
+  --muted: #200505;
+  --muted-foreground: #FF6B6B;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

@@ -5,11 +5,41 @@ Uses OpenCV for frame reading and ffmpeg for format support.
 """
 import logging
 import tempfile
+import subprocess
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional, Union
 
 logger = logging.getLogger(__name__)
+
+def _ensure_mp4_format(video_path: Path) -> Path:
+    """
+    Phase 26: Omni-Lens FFmpeg Transcoder.
+    Intercepts physical enterprise codecs (MKV, AVI, WEBM, HEVC) and normalizes 
+    them natively into MP4 geometry so the OpenCV pipeline does not violently crash.
+    """
+    valid_extensions = ['.mp4', '.mov']
+    if video_path.suffix.lower() in valid_extensions:
+        return video_path
+        
+    logger.warning(f"Phase 26 Transcoder: Intercepted unsupported codec [{video_path.suffix}]. Booting native FFmpeg matrix...")
+    temp_dir = Path(tempfile.mkdtemp(prefix="sentinel_transcode_"))
+    out_path = temp_dir / f"{video_path.stem}_normalized.mp4"
+    
+    try:
+        # Ultra fast silent transcode omitting audio streams
+        cmd = [
+            "ffmpeg", "-y", "-i", str(video_path), 
+            "-c:v", "libx264", "-preset", "ultrafast", 
+            "-an", str(out_path)
+        ]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        logger.info(f"Phase 26 Transcoder: Mathematical realignment successful. Output -> {out_path.name}")
+        return out_path
+    except Exception as e:
+        logger.error(f"FATAL transcoder failure. FFmpeg sequence aborted: {e}")
+        return video_path
 
 
 @dataclass
@@ -37,6 +67,7 @@ class VideoMetadata:
 def get_video_metadata(video_path: Union[str, Path]) -> VideoMetadata:
     """Extract metadata from a video file using OpenCV."""
     import cv2
+    video_path = _ensure_mp4_format(Path(video_path))
 
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
@@ -88,7 +119,7 @@ def extract_frames(
     """
     import cv2
 
-    video_path = Path(video_path)
+    video_path = _ensure_mp4_format(Path(video_path))
     if output_dir is None:
         _tmp_dir = tempfile.mkdtemp(prefix="sentinel_frames_")
         output_dir = Path(_tmp_dir)
@@ -162,7 +193,7 @@ def extract_keyframes(
     import cv2
     import numpy as np
 
-    video_path = Path(video_path)
+    video_path = _ensure_mp4_format(Path(video_path))
     if output_dir is None:
         output_dir = Path(tempfile.mkdtemp(prefix="sentinel_keyframes_"))
     else:

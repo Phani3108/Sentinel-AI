@@ -49,6 +49,9 @@ from api.containment import containment_router
 # Phase 23 Hive Mind Memory Synchronization
 from api.memory import memory_router
 
+# Phase 27 Generative Synthesis
+from api.generative import gen_router
+
 # Phase 7 Security Modules
 from api.security.auth import get_current_user, UserAccount, UserRole
 from api.security.rbac import require_role
@@ -117,6 +120,7 @@ app.include_router(hunting_router)
 app.include_router(fleet_router)
 app.include_router(containment_router)
 app.include_router(memory_router)
+app.include_router(gen_router)
 
 # Mount static metrics dashboard
 app.mount("/metrics-dashboard", StaticFiles(directory="monitoring/dashboards"), name="metrics-ui")

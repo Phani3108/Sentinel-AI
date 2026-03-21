@@ -176,21 +176,39 @@ class SentinelPipeline:
     def analyze_image(self, image_path: Path, prompt: str) -> str:
         """
         Analyzes an image using the primary vision model, with a fallback to a secondary model.
-        This method replaces the direct call to self.vision.analyze for image processing.
+        Phase 25: Natively traps and de-animates animated formats like GIF/WEBP 
+        to mathematically prevent LLM Context Window overflows.
         """
         from .utils.image_utils import encode_image_to_base64
-        frame_b64 = encode_image_to_base64(image_path)
-
-        # The prompt construction from the diff was:
-        # "- Context must be strictly physical facts. No hallucinated opinions.\n"
-        # This seems like a partial prompt or a specific instruction for the LLM,
-        # not the vision model. Assuming the original vision prompt is still relevant.
-        # For now, using the provided prompt directly.
+        import base64
+        from PIL import Image, ImageSequence
+        import io
+        
+        frames_b64 = []
+        try:
+            with Image.open(image_path) as img:
+                if getattr(img, "is_animated", False):
+                    # Phase 25: Extract keyframes from GIF/WEBP
+                    logger.info("Phase 25: Animated payload (GIF/WEBP) detected. Extracting core topological keyframes...")
+                    frames = [f.copy() for f in ImageSequence.Iterator(img)]
+                    
+                    # Mathematical decomposition: start, middle, end
+                    idxs = [0, len(frames)//2, len(frames)-1]
+                    for i in idxs:
+                        f = frames[i].convert("RGB")
+                        buf = io.BytesIO()
+                        f.save(buf, format="JPEG")
+                        frames_b64.append(base64.b64encode(buf.getvalue()).decode('utf-8'))
+                else:
+                    frames_b64.append(encode_image_to_base64(image_path))
+        except Exception as e:
+            logger.warning(f"Animated evaluation natively failed, falling back to raw binary execution: {e}")
+            frames_b64.append(encode_image_to_base64(image_path))
 
         payload = {
             "model": self.primary_vision_model,
             "prompt": prompt,
-            "images": [frame_b64],
+            "images": frames_b64,
             "stream": False
         }
 

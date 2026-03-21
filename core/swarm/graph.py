@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph, END
 from core.swarm.state import SwarmState
-from core.swarm.nodes import director_node, vision_node, intel_node, action_node
+from core.swarm.nodes import director_node, vision_node, intel_node, action_node, translator_node
 
 def route_director(state: SwarmState):
     """Conditional Edge Evaluation: Determine next state jump based on Orchestrator requirements."""
@@ -23,6 +23,7 @@ def compile_swarm():
     workflow.add_node("vision_agent", vision_node)
     workflow.add_node("intel_agent", intel_node)
     workflow.add_node("action_agent", action_node)
+    workflow.add_node("translator_agent", translator_node) # Phase 24 Hook
     
     # Dictate graph traversal starting point
     workflow.set_entry_point("director")
@@ -43,8 +44,9 @@ def compile_swarm():
     workflow.add_edge("vision_agent", "director")
     workflow.add_edge("intel_agent", "director")
     
-    # Terminal Execution
-    workflow.add_edge("action_agent", END)
+    # Terminal Execution bridged through Vernacular LLMs
+    workflow.add_edge("action_agent", "translator_agent")
+    workflow.add_edge("translator_agent", END)
     
     # Compile execution engine
     return workflow.compile()

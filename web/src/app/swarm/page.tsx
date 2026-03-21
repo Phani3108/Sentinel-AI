@@ -30,6 +30,17 @@ export default function SwarmArenaPage() {
     }
   }, [events]);
 
+  // Phase 29: Stateful CSS Themes
+  // Overrides the native DOM to plunge the user into Crisis UI when a threat executes.
+  useEffect(() => {
+    if (webhookFired) {
+      document.documentElement.classList.add("crisis-mode");
+    } else {
+      document.documentElement.classList.remove("crisis-mode");
+    }
+    return () => document.documentElement.classList.remove("crisis-mode");
+  }, [webhookFired]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const f = e.target.files[0];
@@ -88,6 +99,24 @@ export default function SwarmArenaPage() {
             if (data.message.includes("[CONTAINMENT_LOCK]")) {
                const match = data.message.match(/\[(INC-[A-Z0-9]{6})\]/);
                if (match) setLockedIncident(match[1]);
+            }
+            
+            // Phase 30: Omnipresent Sentinel Oracle Voice Integration
+            if (typeof window !== "undefined" && "speechSynthesis" in window) {
+               // Only synthesize the human-readable text, stripping the bracketed agent tag
+               const cleanText = data.message.replace(/\[.*?\]:\s*/g, '');
+               if (cleanText && !cleanText.includes("SYNTHETIC_GENERATION_URL")) {
+                 const utterance = new SpeechSynthesisUtterance(cleanText);
+                 utterance.rate = 1.05;
+                 
+                 // Mathematically assign voice pitches based on Agent persona
+                 if (data.node === "director") utterance.pitch = 0.8;      // Deep, commanding Orchestrator
+                 else if (data.node === "vision_agent") utterance.pitch = 1.2; // High, rapid Specialist
+                 else if (data.node === "intel_agent") utterance.pitch = 0.9;  // Measured Cyber Officer
+                 else if (data.node === "action_agent") utterance.pitch = 0.7; // Very deep Executioner
+                 
+                 window.speechSynthesis.speak(utterance);
+               }
             }
             
             setEvents((prev) => [
@@ -275,9 +304,20 @@ export default function SwarmArenaPage() {
                       {getNodeIcon(evt.node)}
                       <span className="text-[10px] uppercase font-bold tracking-widest">{evt.node}</span>
                     </div>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {evt.message.replace(/\[.*?\]:\s/, '')}
-                    </p>
+                    <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                      {evt.message.replace(/\[.*?\]:\s/, '').split('\n').map((line, idx) => {
+                        if (line.includes("[SYNTHETIC_GENERATION_URL]:")) {
+                          const url = line.split("[SYNTHETIC_GENERATION_URL]:")[1].trim();
+                          return (
+                            <div key={idx} className="mt-4 mb-2">
+                              <span className="text-[10px] text-blue-200 font-bold tracking-widest uppercase mb-2 block border-b border-blue-400/20 pb-1 w-max">Generative Reconstruction Core</span>
+                              <img src={url} alt="Synthetic Recreation" className="rounded-xl border border-blue-500/30 shadow-[0_0_20px_rgba(59,130,246,0.1)] w-full max-w-sm" />
+                            </div>
+                          );
+                        }
+                        return <div key={idx}>{line}</div>;
+                      })}
+                    </div>
                   </motion.div>
                 ))}
              </AnimatePresence>
