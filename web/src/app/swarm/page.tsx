@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Users, Bot, ShieldAlert, Cpu, Network, UploadCloud, Loader2 } from "lucide-react";
+import { Users, Bot, ShieldAlert, Cpu, Network, UploadCloud, Loader2, AlertTriangle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 type SwarmEvent = {
@@ -16,6 +16,7 @@ export default function SwarmArenaPage() {
   const [tripwire, setTripwire] = useState("Scan the visual manifold. Is there a critical anomaly that violates internal policies?");
   
   const [isSwarming, setIsSwarming] = useState(false);
+  const [webhookFired, setWebhookFired] = useState(false);
   const [events, setEvents] = useState<SwarmEvent[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -36,6 +37,7 @@ export default function SwarmArenaPage() {
   const deploySwarm = async () => {
     if (!file) return;
     setIsSwarming(true);
+    setWebhookFired(false);
     setEvents([]);
 
     const formData = new FormData();
@@ -73,6 +75,10 @@ export default function SwarmArenaPage() {
               break;
             }
             
+            if (data.node === "action_agent") {
+              setWebhookFired(true);
+            }
+            
             setEvents((prev) => [
               ...prev, 
               { id: Math.random().toString(), node: data.node, message: data.message }
@@ -96,6 +102,7 @@ export default function SwarmArenaPage() {
     if (node === "director") return "bg-blue-500 text-blue-50 border-blue-600";
     if (node === "vision_agent") return "bg-purple-500 text-purple-50 border-purple-600";
     if (node === "intel_agent") return "bg-orange-500 text-orange-50 border-orange-600";
+    if (node === "action_agent") return "bg-red-500 text-red-50 border-red-600 shadow-[0_0_15px_rgba(239,68,68,0.5)]";
     return "bg-neutral-800 text-white border-neutral-700";
   };
   
@@ -103,6 +110,7 @@ export default function SwarmArenaPage() {
     if (node === "director") return <Network size={16} />;
     if (node === "vision_agent") return <Cpu size={16} />;
     if (node === "intel_agent") return <ShieldAlert size={16} />;
+    if (node === "action_agent") return <AlertTriangle size={16} className="animate-pulse" />;
     return <Bot size={16} />;
   };
 
@@ -156,6 +164,24 @@ export default function SwarmArenaPage() {
 
         {/* Right: The Arena (Agent Chat) */}
         <div className="w-full md:w-2/3 bg-background border border-border rounded-2xl shadow-labs flex flex-col overflow-hidden relative">
+          
+          <AnimatePresence>
+            {webhookFired && (
+              <motion.div 
+                initial={{ opacity: 0, y: -50 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="absolute top-4 left-4 right-4 z-50 bg-red-500/90 text-white p-4 rounded-xl shadow-[0_0_30px_rgba(239,68,68,0.4)] border border-red-400 flex items-center gap-4 backdrop-blur-md"
+              >
+                <AlertTriangle size={32} className="animate-pulse flex-shrink-0" />
+                <div>
+                   <h4 className="font-bold text-lg leading-tight uppercase tracking-widest">Autonomous Remediation Triggered</h4>
+                   <p className="text-red-100 text-sm">Action Agent has physically dispatched the incident payload via Enterprise Webhook Hub.</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="border-b border-border bg-card-bg p-4 flex items-center justify-between z-10">
             <h3 className="font-semibold text-foreground flex items-center gap-2">
               <Network className="text-primary" size={18} /> LangGraph Execution Trace

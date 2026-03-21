@@ -19,11 +19,16 @@ def director_node(state: SwarmState) -> Dict[str, Any]:
     The Orchestrator. Evaluates the current state matrices to determine if 
     insufficient data requires consulting the sub-agents before finalizing a verdict.
     """
+    from core.memory.episodic import EpisodicMemory
     llm = get_swarm_llm()
     tripwire = state.get("tripwire", "Analyze threat environment.")
     vision = state.get("vision_context", "")
     intel = state.get("intel_context", "")
     messages = list(state.get("messages", []))
+    
+    # Retrieve Historical Memory matches to inject physical temporal awareness
+    memory_node = EpisodicMemory()
+    history = memory_node.recall_history(tripwire) if tripwire else ""
     
     system_prompt = f"""You are the SWARM DIRECTOR.
 Your objective is to determine if the visual feed breaches the security tripwire: '{tripwire}'.
@@ -31,6 +36,9 @@ Your objective is to determine if the visual feed breaches the security tripwire
 Available Intelligence:
 - Vision Context: {vision if vision else 'NONE (Needs Vision Agent)'}
 - Cyber Intel: {intel if intel else 'NONE (Needs Intel Agent)'}
+
+Historical Episodic Memory (Similar past incidents):
+{history if history else 'No historical matches. Context is isolated.'}
 
 RULES:
 1. If Vision Context is NONE, respond exactly with "ROUTE_TO_VISION".
@@ -118,4 +126,33 @@ def intel_node(state: SwarmState) -> Dict[str, Any]:
     return {
         "intel_context": intel,
         "messages": [AIMessage(content=f"[INTEL_AGENT]: Semantic retrieval completed. Policies found: {intel}")]
+    }
+
+def action_node(state: SwarmState) -> Dict[str, Any]:
+    """
+    The Action Engine. Automatically triggers internal/external security mitigations 
+    such as Slack Webhooks or API shutdowns based on the Swarm's consensus.
+    """
+    from core.integrations.webhooks import ActionEngine
+    from core.memory.episodic import EpisodicMemory
+    
+    threat_level = state.get("threat_level", "UNKNOWN")
+    vision_context = state.get("vision_context", "Undefined")
+    tripwire = state.get("tripwire", "Undefined")
+    
+    logger.info("Swarm: Action Agent executing autonomous remediation strategies.")
+    
+    # Persist the event to Long-term Memory for future Swarm queries
+    mem = EpisodicMemory()
+    mem.store_episode(entity_description=vision_context, threat_level=threat_level)
+    
+    if threat_level == "CRITICAL":
+        payload = f"*Tripwire Breached:* {tripwire}\n*Topology:* {vision_context}"
+        res = ActionEngine.dispatch_slack_alert(message=payload, severity="CRITICAL")
+        msg = f"[ACTION_AGENT]: Dispatched CRITICAL payload to Enterprise Webhook Hub (Status: {res['status']})."
+    else:
+        msg = f"[ACTION_AGENT]: Escalation protocol aborted. Threat level '{threat_level}' does not meet CRITICAL threshold."
+        
+    return {
+        "messages": [AIMessage(content=msg)]
     }

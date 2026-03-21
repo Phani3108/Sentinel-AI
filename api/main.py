@@ -144,6 +144,17 @@ class RAGQueryRequest(BaseModel):
 # System Endpoints
 # ------------------------------------------------------------------ #
 
+@app.post("/system/mock/slack", tags=["System"])
+async def mock_slack_webhook(request: Request):
+    """
+    Simulated Enterprise Slack web hook. 
+    Verifies that the Action Agent can physically craft and POST HTTP JSON payloads to remote servers.
+    """
+    payload = await request.json()
+    logger.info(f"MOCK SLACK RECEIVED WEBHOCK: {payload.get('text')}")
+    # Echos back the receipt for the Action Node to verify success
+    return {"status": "received_by_slack_mock", "message_length": len(payload.get("text", ""))}
+
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health():
     """Health check — intentionally left public so Load Balancers can ping it."""
