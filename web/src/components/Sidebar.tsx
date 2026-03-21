@@ -2,19 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Shield, ImageIcon, Video, Search, Activity, Settings, Zap, Camera } from "lucide-react";
+import { Settings, Zap } from "lucide-react";
+import { useAppRoutes, SystemHeartbeat } from "./CoreRegistry";
 
 export function Sidebar() {
   const pathname = usePathname();
-
-  const links = [
-    { href: "/", label: "Dashboard", icon: Shield },
-    { href: "/live", label: "Active Sentinel", icon: Camera },
-    { href: "/image", label: "Image Analysis", icon: ImageIcon },
-    { href: "/video", label: "Video Pipeline", icon: Video },
-    { href: "/rag", label: "RAG Explorer", icon: Search },
-    { href: "/monitoring", label: "Telemetry", icon: Activity },
-  ];
+  const links = useAppRoutes();
 
   return (
     <nav className="w-64 border-r border-border bg-card-bg flex flex-col h-full flex-shrink-0">
@@ -52,6 +45,7 @@ export function Sidebar() {
           <Settings size={18} />
           <span>Config</span>
         </button>
+        <SystemHeartbeat />
       </div>
     </nav>
   );
