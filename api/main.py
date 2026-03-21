@@ -19,16 +19,17 @@ from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+from starlette.staticfiles import StaticFiles
 
 from core.config import get_settings
 from core.pipeline import SentinelPipeline
 
 # Phase 8 Caching & Async Jobs
-from core.cache import get_cache
-from api.jobs import router as jobs_router
-
-# Phase 9 Feedback Loop
-from api.feedback import router as feedback_router
+from api.system import system_router
+from api.video import video_router
+from api.jobs import jobs_router
+from api.feedback import feedback_router
+from api.live import live_router
 
 # Phase 7 Security Modules
 from api.security.auth import get_current_user, UserAccount, UserRole
@@ -70,7 +71,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"✅ Pipeline initialized: {_pipeline}")
     # Prime singletons
     get_audit_logger()
-    get_cache()
+    # get_cache() # Removed as per user's implicit instruction in the diff
     yield
     logger.info("Shutting down Sentinel AI API...")
 
@@ -79,17 +80,23 @@ async def lifespan(app: FastAPI):
 # FastAPI App
 # ------------------------------------------------------------------ #
 app = FastAPI(
-    title="Sentinel AI - Enterprise Secure",
-    description="Private Multimodal AI Stack with Sentinel Guard Governance.",
-    version="0.4.0",
+    title="Sentinel AI Enterprise Engine",
+    description="Multimodal Analytics, ReAct Orchestration, & Live Threat Telemetry",
+    version="10.0.0",
     lifespan=lifespan,
 )
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+app.include_router(system_router)
+app.include_router(video_router)
 app.include_router(jobs_router)
 app.include_router(feedback_router)
+app.include_router(live_router)
+
+# Mount static metrics dashboard
+app.mount("/metrics-dashboard", StaticFiles(directory="monitoring/dashboards"), name="metrics-ui")
 
 app.add_middleware(
     CORSMiddleware,

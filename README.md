@@ -42,6 +42,17 @@ If a request contains non-sensitive public data, the built-in **Hybrid Router** 
 6. **📊 Full Observability**: OpenTelemetry tracing + Prometheus metrics + Grafana dashboards + Jaeger.
 7. **🛠️ Fine-Tuning Scaffolding**: Built-in scripts to build datasets and PEFT/LoRA fine-tune Florence-2 or LLaVA.
 
+### Phase 11: Enterprise Next.js Overhaul
+- **React/Next.js Migration**: Replaced simplistic Streamlit prototypes with an App Router-backed React application for maximum depth and aesthetic control.
+- **Google Labs Aesthetics**: Curated a `Desert Sand` and `Terracotta Orange` TailwindCSS v4 schema mapping fluid Framer Motion animations to elevated shadow cards.
+- **Native DOM Streaming**: Bypassed polling limitations by constructing native `Fetch API` chunk sequence decoders rendering the massive multi-modal inference payloads instantly.
+
+### Phase 12: Active Live Monitoring (The Sentinel)
+- **WebRTC Camera Hook**: Taps the physical device's webcam natively in the browser leveraging `navigator.mediaDevices`.
+- **FastAPI WebSockets**: Bi-directional asynchronous TCP pipelines (`ws://localhost:8080/live/stream`) ingesting multi-megabyte canvas snapshots continuously.
+- **Dynamic Tripwires**: Natural language rule-setting (e.g., *"Is there a person?"*) continuously parsed against live video streams. 
+- **Autonomous Incident Matrix**: Flags breaches in real-time, dumping localized vision contexts into a responsive Threat Matrix sidebar.
+
 ---
 
 ## 🏗️ Architecture

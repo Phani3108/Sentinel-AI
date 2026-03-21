@@ -111,3 +111,171 @@ Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allow
   digest: '2006848982'
 }
  GET /image 500 in 40ms (next.js: 6ms, application-code: 34ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 35ms (next.js: 3ms, application-code: 33ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 57ms (next.js: 10ms, application-code: 47ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 44ms (next.js: 4ms, application-code: 40ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 43ms (next.js: 6ms, application-code: 37ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 48ms (next.js: 7ms, application-code: 40ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 49ms (next.js: 5ms, application-code: 44ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 39ms (next.js: 5ms, application-code: 34ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 54ms (next.js: 10ms, application-code: 44ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 34ms (next.js: 4ms, application-code: 30ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 50ms (next.js: 16ms, application-code: 34ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 125ms (next.js: 20ms, application-code: 105ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 259ms (next.js: 106ms, application-code: 154ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 70ms (next.js: 17ms, application-code: 53ms)
+⨯ ReferenceError: Activity is not defined
+    at ImageAnalysisPage (src/app/image/page.tsx:229:20)
+  227 |               ) : !streamText && !loading ? (
+  228 |                 <div className="flex-1 flex flex-col items-center justify-center text-mut...
+> 229 |                   <Activity size={32} className="opacity-20 mb-4" />
+      |                    ^
+  230 |                   <p>Awaiting execution payload...</p>
+  231 |                 </div>
+  232 |               ) : ( {
+  digest: '2006848982'
+}
+ GET /image 500 in 216ms (next.js: 88ms, application-code: 128ms)

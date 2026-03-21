@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Shield, ImageIcon, Video, Search, Activity, Settings, Zap } from "lucide-react";
+import { Shield, ImageIcon, Video, Search, Activity, Settings, Zap, Camera } from "lucide-react";
 
 export function Sidebar() {
   const pathname = usePathname();
 
   const links = [
     { href: "/", label: "Dashboard", icon: Shield },
+    { href: "/live", label: "Active Sentinel", icon: Camera },
     { href: "/image", label: "Image Analysis", icon: ImageIcon },
     { href: "/video", label: "Video Pipeline", icon: Video },
     { href: "/rag", label: "RAG Explorer", icon: Search },
